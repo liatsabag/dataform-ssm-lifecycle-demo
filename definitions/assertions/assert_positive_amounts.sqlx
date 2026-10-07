@@ -1,0 +1,13 @@
+config {
+  type: "assertion",
+  description: "Data Quality Check: Assert that transaction_amount is non-negative and non-null in fct_cleaned_transactions"
+}
+
+SELECT
+  transaction_id,
+  transaction_amount
+FROM
+  ${ref("fct_cleaned_transactions")}
+WHERE
+  transaction_amount < 0
+  OR transaction_amount IS NULL

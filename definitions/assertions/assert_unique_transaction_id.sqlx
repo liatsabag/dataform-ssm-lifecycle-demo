@@ -1,0 +1,15 @@
+config {
+  type: "assertion",
+  description: "Data Quality Check: Assert that transaction_id is strictly unique and non-null in fct_cleaned_transactions"
+}
+
+SELECT
+  transaction_id,
+  COUNT(*) AS occurrences
+FROM
+  ${ref("fct_cleaned_transactions")}
+GROUP BY
+  transaction_id
+HAVING
+  occurrences > 1
+  OR transaction_id IS NULL
