@@ -1,0 +1,56 @@
+config {
+  type: "table",
+  schema: "analytics_curated",
+  name: "fct_cleaned_transactions",
+  description: "Curated fact table containing validated, deduplicated customer transactions ready for BI and downstream analytics.",
+  columns: {
+    transaction_id: "Primary Key: Unique transaction identifier",
+    customer_id: "Customer identifier",
+    transaction_date: "Date of transaction for partition filtering",
+    transaction_timestamp: "Timestamp of transaction",
+    transaction_amount: "Final positive transaction amount",
+    payment_status: "Validated payment status",
+    is_high_value: "Boolean flag for transactions >= $1000",
+    processed_at: "Ingestion/processing timestamp"
+  },
+  bigquery: {
+    partitionBy: "transaction_date",
+    clusterBy: ["customer_id", "payment_status"]
+  }
+}
+
+/**
+ * Stage 2: Deduplication, Enrichment & Final Table Materialization
+ * - Reads from intermediate stage view ${ref("stg_transactions")}
+ * - Deduplicates on transaction_id taking latest timestamp
+ * - Adds partition column and business metrics
+ */
+WITH deduplicated AS (
+  SELECT
+    transaction_id,
+    customer_id,
+    DATE(transaction_timestamp) AS transaction_date,
+    transaction_timestamp,
+    transaction_amount,
+    payment_status,
+    ROW_NUMBER() OVER(
+      PARTITION BY transaction_id 
+      ORDER BY transaction_timestamp DESC
+    ) AS row_num
+  FROM
+    ${ref("stg_transactions")}
+)
+
+SELECT
+  transaction_id,
+  customer_id,
+  transaction_date,
+  transaction_timestamp,
+  transaction_amount,
+  payment_status,
+  (transaction_amount >= 1000.0) AS is_high_value,
+  CURRENT_TIMESTAMP() AS processed_at
+FROM
+  deduplicated
+WHERE
+  row_num = 1

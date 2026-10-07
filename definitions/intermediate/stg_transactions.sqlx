@@ -1,0 +1,43 @@
+config {
+  type: "view",
+  schema: "analytics_curated",
+  name: "stg_transactions",
+  description: "Cleansed and standardized staging transaction view reading from locked PROD raw source.",
+  columns: {
+    transaction_id: "Unique alphanumeric transaction identifier",
+    customer_id: "Unique customer identifier",
+    transaction_timestamp: "Normalized UTC timestamp of the transaction",
+    transaction_amount: "Cleaned positive transaction amount in USD",
+    payment_status: "Normalized uppercase transaction status (e.g. COMPLETED, PENDING, FAILED)"
+  }
+}
+
+/**
+ * Stage 1: Extraction & Cleansing
+ * - Reads from locked PROD raw source via ${ref("raw_transactions")}
+ * - Strips whitespace, standardizes casing, handles null values, casts types
+ */
+WITH cleaned AS (
+  SELECT
+    TRIM(transaction_id) AS transaction_id,
+    TRIM(customer_id) AS customer_id,
+    SAFE_CAST(transaction_timestamp AS TIMESTAMP) AS transaction_timestamp,
+    COALESCE(SAFE_CAST(amount AS NUMERIC), 0.0) AS transaction_amount,
+    UPPER(TRIM(COALESCE(status, 'UNKNOWN'))) AS payment_status
+  FROM
+    ${ref("raw_transactions")}
+  WHERE
+    transaction_id IS NOT NULL
+    AND TRIM(transaction_id) != ''
+)
+
+SELECT
+  transaction_id,
+  customer_id,
+  transaction_timestamp,
+  transaction_amount,
+  payment_status
+FROM
+  cleaned
+WHERE
+  transaction_amount >= 0
