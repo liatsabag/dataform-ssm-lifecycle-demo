@@ -5,4 +5,4 @@ assertionDataset: dataform_assertions
 vars:
   source_project: df-data-prod
   source_dataset: raw_vault
-  pipeline_version: "2.0-demo-1791489220"
+  pipeline_version: "2.0-demo-1791489257"
