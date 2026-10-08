@@ -1,14 +1,8 @@
-# Google Cloud Dataform Workflow Settings
-# Topology: DEV by default for developer isolation, dynamic PROD source parameterization
-
 defaultProject: df-data-dev
-defaultDataset: analytics_curated
 defaultLocation: me-west1
-defaultAssertionDataset: dataform_assertions
-dataformCoreVersion: 3.0.0
-
-# Custom compilation variables (Anti-Hijacking Pattern)
-# source_project is hardlocked to PROD so global overrides do not alter the source reading path
+defaultDataset: analytics_curated
+assertionDataset: dataform_assertions
 vars:
   source_project: df-data-prod
   source_dataset: raw_vault
+  pipeline_version: "2.0-demo-1791489220"
