@@ -23,8 +23,7 @@ config {
  * Stage 2: Deduplication, Enrichment & Final Table Materialization
  * - Reads from intermediate stage view ${ref("stg_transactions")}
  * - Deduplicates on transaction_id taking latest timestamp
-<<<<<<< HEAD
- * - Adds partition column and business metrics
+ * - Adds partition column and high-value flag
  */
 WITH deduplicated AS (
   SELECT
@@ -50,11 +49,6 @@ SELECT
   transaction_amount,
   payment_status,
   (transaction_amount >= 1000.0) AS is_high_value,
-  CASE
-  WHEN transaction_amount >= 1000.0 THEN 'PLATINUM'
-  WHEN transaction_amount >= 500.0 THEN 'GOLD'
-  ELSE 'STANDARD'
-  END AS customer_tier,
   CURRENT_TIMESTAMP() AS processed_at
 FROM
   deduplicated
