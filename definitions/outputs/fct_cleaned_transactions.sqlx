@@ -11,6 +11,7 @@ config {
     transaction_amount: "Final positive transaction amount",
     payment_status: "Validated payment status",
     is_high_value: "Boolean flag for transactions >= $1000",
+    customer_tier: "Customer loyalty tier: PLATINUM (>= $1000), GOLD (>= $500), STANDARD (< $500)",
     processed_at: "Ingestion/processing timestamp"
   },
   bigquery: {
@@ -49,6 +50,11 @@ SELECT
   transaction_amount,
   payment_status,
   (transaction_amount >= 1000.0) AS is_high_value,
+  CASE
+  WHEN transaction_amount >= 1000.0 THEN 'PLATINUM'
+  WHEN transaction_amount >= 500.0 THEN 'GOLD'
+  ELSE 'STANDARD'
+END AS customer_tier,
   CURRENT_TIMESTAMP() AS processed_at
 FROM
   deduplicated
