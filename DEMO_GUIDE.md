@@ -24,10 +24,10 @@ flowchart LR
         PR -->|Squash-Merge| MAIN_BR
     end
 
-    subgraph DEV_ENV ["2. DEV Project (df-data-dev)"]
+    subgraph DEV_ENV ["2. DEV Project (<dev_project_id>)"]
         direction TB
-        WS["Workspace: alice<br/>(User: Alice)"]:::devStyle
-        SANDBOX[("Sandbox Dataset<br/>__alice")]:::devStyle
+        WS["Workspace: <developer_workspace><br/>(User: <developer_email>)"]:::devStyle
+        SANDBOX[("Sandbox Dataset<br/>__<developer_workspace>")]:::devStyle
         DEV_EXEC["dev-release<br/>(SA: dataform-executor)"]:::devStyle
         DEV_TARGET[("DEV Curated<br/>analytics_curated")]:::devStyle
         
@@ -35,7 +35,7 @@ flowchart LR
         DEV_EXEC -->|Write DEV| DEV_TARGET
     end
 
-    subgraph PROD_ENV ["3. PROD Project (df-data-prod)"]
+    subgraph PROD_ENV ["3. PROD Project (<prod_project_id>)"]
         direction TB
         RAW_VAULT[("Read-Only Vault<br/>raw_vault")]:::vaultStyle
         PROD_EXEC["prod-release<br/>(SA: dataform-executor)"]:::prodStyle
@@ -56,35 +56,35 @@ flowchart LR
 ### Key Environment Mappings
 | Environment Role | Project ID | Dataset / Resource | Notes |
 | :--- | :--- | :--- | :--- |
-| **Git Repository** | `majestic-energy-353306` | `dataform-pipeline` (SSM) | Private Secure Source Manager repository |
-| **Developer Sandbox** | `df-data-dev` | `analytics_curated__alice` | Isolated developer testing sandbox |
-| **DEV Integration Target**| `df-data-dev` | `analytics_curated` | Automated DEV release target |
-| **PROD Raw Source** | `df-data-prod` | `raw_vault.raw_transactions` | Immutable raw data source |
-| **PROD Curated Target** | `df-data-prod` | `analytics_curated` | High-governance production tables |
-| **Execution Identity** | `df-data-dev` | `dataform-executor@...` | Dedicated pipeline Service Account |
+| **Git Repository** | `<ssm_project_id>` | `dataform-pipeline` (SSM) | Private Secure Source Manager repository |
+| **Developer Sandbox** | `<dev_project_id>` | `analytics_curated__<developer_workspace>` | Isolated developer testing sandbox |
+| **DEV Integration Target**| `<dev_project_id>` | `analytics_curated` | Automated DEV release target |
+| **PROD Raw Source** | `<prod_project_id>` | `raw_vault.raw_transactions` | Immutable raw data source |
+| **PROD Curated Target** | `<prod_project_id>` | `analytics_curated` | High-governance production tables |
+| **Execution Identity** | `<dev_project_id>` | `dataform-executor@...` | Dedicated pipeline Service Account |
 
 ---
 
 ### 👥 Roles & Governance Capabilities Matrix
 
-| Capability / Action | Developer (Alice) | Reviewer / Admin |
+| Capability / Action | Developer (<developer_email>) | Reviewer / Admin |
 | :--- | :---: | :---: |
-| **Develop code in Dataform workspace (`alice`)** | ✅ **Allowed** | ❌ Private to Alice |
-| **Execute & test in Sandbox (`analytics_curated__alice`)** | ✅ **Allowed** | ✅ Allowed |
-| **Read raw data from PROD vault (`df-data-prod.raw_vault`)** | ✅ **Allowed** (Read-Only) | ✅ Allowed (Read-Only) |
+| **Develop code in Dataform workspace (`<developer_workspace>`)** | ✅ **Allowed** | ❌ User-Isolated |
+| **Execute & test in Sandbox (`analytics_curated__<developer_workspace>`)** | ✅ **Allowed** | ✅ Allowed |
+| **Read raw data from PROD vault (`<prod_project_id>.raw_vault`)** | ✅ **Allowed** (Read-Only) | ✅ Allowed (Read-Only) |
 | **Push code directly to `development` branch** | ✅ **Allowed** | ✅ Allowed |
 | **Push code directly to `main` branch** | 🛑 **Blocked** (Branch Rule) | 🛑 **Blocked** (Branch Rule) |
 | **Open Pull Request (`development` $\rightarrow$ `main`)** | ✅ **Allowed** | ✅ Allowed |
 | **Approve & Squash-Merge PR into `main`** | 🛑 **Blocked** (Needs Reviewer) | ✅ **Allowed** |
-| **Directly write to PROD dataset (`df-data-prod.analytics_curated`)** | 🛑 **No Permission** | 🛑 **No Manual Writes** *(SA only)* |
-| **Directly write to shared DEV target (`df-data-dev.analytics_curated`)** | 🛑 **No Permission** *(Sandbox only)* | 🛑 **Managed by Release** |
+| **Directly write to PROD dataset (`<prod_project_id>.analytics_curated`)** | 🛑 **No Permission** | 🛑 **No Manual Writes** *(SA only)* |
+| **Directly write to shared DEV target (`<dev_project_id>.analytics_curated`)** | 🛑 **No Permission** *(Sandbox only)* | 🛑 **Managed by Release** |
 | **Trigger DEV / PROD Workflow Configurations** | 🛑 **No Permission** | ✅ **Allowed** |
 | **Audit BigQuery Jobs (`INFORMATION_SCHEMA`)** | ❌ Limited to own jobs | ✅ Full project audit |
 
 #### Key Governance Boundaries:
-* **Developer (Alice)**: Can only modify her private sandbox tables and push to `development`. Cannot write to Production or merge her own PRs.
+* **Developer**: Can only modify private sandbox tables and push to `development`. Cannot write to Production or merge own PRs.
 * **Reviewer / Admin**: Approves PRs and manages release configs. Cannot push unreviewed code directly to `main`.
-* **Pipeline Service Account (`dataform-executor`)**: The **only** identity that writes to `df-data-prod.analytics_curated` and `df-data-dev.analytics_curated` during automated release workflows.
+* **Pipeline Service Account (`dataform-executor`)**: The **only** identity that writes to `<prod_project_id>.analytics_curated` and `<dev_project_id>.analytics_curated` during automated release workflows.
 
 ---
 
@@ -97,27 +97,27 @@ Before beginning the demonstration, reset all environments (Git branches, worksp
 ```
 
 ### What Gets Reset:
-1. **Git Branches**: `development` and `main` branches in Secure Source Manager are reset to commit `d78c0ff` (v1.0 baseline without `customer_tier`).
-2. **Developer Workspaces**: Workspace `alice` is freshly cloned and synced with 0 uncommitted changes and 0 conflicts.
+1. **Git Branches**: `development` and `main` branches in Secure Source Manager are reset to baseline commit (v1.0 baseline without `customer_tier`).
+2. **Developer Workspaces**: Workspace `<developer_workspace>` is freshly cloned and synced with 0 uncommitted changes and 0 conflicts.
 3. **BigQuery Environments**:
-   - `df-data-dev.analytics_curated` $\rightarrow$ Rebuilt to baseline v1.0 schema.
-   - `df-data-prod.analytics_curated` $\rightarrow$ Rebuilt to baseline v1.0 schema.
-   - `df-data-dev.analytics_curated__alice` $\rightarrow$ Cleaned and emptied.
+   - `<dev_project_id>.analytics_curated` $\rightarrow$ Rebuilt to baseline v1.0 schema.
+   - `<prod_project_id>.analytics_curated` $\rightarrow$ Rebuilt to baseline v1.0 schema.
+   - `<dev_project_id>.analytics_curated__<developer_workspace>` $\rightarrow$ Cleaned and emptied.
 
 ---
 
-## 👩‍💻 Step 1: Developer Feature Development (Alice)
+## 👩‍💻 Step 1: Developer Feature Development
 
 ### 1.1 Open Workspace & Inspect Sandbox
-1. In Google Cloud Console, navigate to **Dataform** in project **`df-data-dev`** (Region: `me-west1`).
-2. Open repository **`dataform-pipeline`** $\rightarrow$ Open development workspace **`alice`**.
+1. In Google Cloud Console, navigate to **Dataform** in project **`<dev_project_id>`** (Region: `<region>`).
+2. Open repository **`dataform-pipeline`** $\rightarrow$ Open development workspace **`<developer_workspace>`**.
 3. Under **Workspace settings**, observe the Compilation Override:
-   - **Schema suffix**: `_alice` (Target dataset: `analytics_curated__alice`).
+   - **Schema suffix**: `_<developer_workspace>` (Target dataset: `analytics_curated__<developer_workspace>`).
 
 ---
 
 ### 1.2 Add the New Business Metric
-1. Open [`definitions/outputs/fct_cleaned_transactions.sqlx`](file:///Users/liatsabag/Downloads/DataformDevelopment/definitions/outputs/fct_cleaned_transactions.sqlx).
+1. Open [`definitions/outputs/fct_cleaned_transactions.sqlx`](definitions/outputs/fct_cleaned_transactions.sqlx).
 2. In the `columns: { ... }` documentation block, add:
    ```javascript
    customer_tier: "Customer loyalty tier: PLATINUM (>= $1000), GOLD (>= $500), STANDARD (< $500)",
@@ -153,15 +153,15 @@ Before beginning the demonstration, reset all environments (Git branches, worksp
 #### 🔍 Proof 1.1: Sandbox Table Contains New Metric
 ```sql
 SELECT transaction_id, customer_id, transaction_amount, customer_tier 
-FROM `df-data-dev.analytics_curated__alice.fct_cleaned_transactions` 
+FROM `<dev_project_id>.analytics_curated__<developer_workspace>.fct_cleaned_transactions` 
 LIMIT 5;
 ```
-> **Observation**: The `customer_tier` column is populated with `PLATINUM`, `GOLD`, and `STANDARD` values in Alice's sandbox.
+> **Observation**: The `customer_tier` column is populated with `PLATINUM`, `GOLD`, and `STANDARD` values in the sandbox.
 
 #### 🔍 Proof 1.2: Production & DEV Base Tables Remain Untouched
 ```sql
 SELECT * 
-FROM `df-data-prod.analytics_curated.fct_cleaned_transactions` 
+FROM `<prod_project_id>.analytics_curated.fct_cleaned_transactions` 
 LIMIT 1;
 ```
 > **Observation**: The production table does **not** contain `customer_tier`. Developer changes are 100% isolated.
@@ -177,8 +177,9 @@ LIMIT 1;
 
 ## 🛡️ Step 2: Governance & Pull Request Review (Admin)
 
-### 2.1 Open Pull Request as Alice
-1. Navigate to the **[Secure Source Manager Web UI](https://df-source-instance-760763010051.me-west1.sourcemanager.dev/majestic-energy-353306/dataform-pipeline)**.
+### 2.1 Open Pull Request
+1. Navigate to the **Secure Source Manager Web UI**:
+   `https://<instance_id>-<project_number>.<region>.sourcemanager.dev/<ssm_project_id>/<repo_id>`
 2. Go to **Pull requests** $\rightarrow$ Click **New pull request**.
 3. Configure the branch comparison:
    - **Base branch**: `main`
@@ -188,7 +189,7 @@ LIMIT 1;
 ---
 
 ### 2.2 Review and Approve as Admin
-1. Log into Secure Source Manager as the Reviewer / Admin (`admin@liatsabag.altostrat.com`).
+1. Log into Secure Source Manager as the Reviewer / Admin (`<admin_email>`).
 2. Open the newly created Pull Request.
 3. Click the **Files changed** tab:
    - Point out the exact SQL diff (`+ customer_tier` calculation).
@@ -202,11 +203,11 @@ LIMIT 1;
 ## 🚀 Step 3: Production Release & Execution
 
 ### 3.1 Inspect Release Configuration (`prod-release`)
-1. In Google Cloud Console, open **Dataform** in `df-data-dev`.
+1. In Google Cloud Console, open **Dataform** in `<dev_project_id>`.
 2. In the left navigation, click **Release configurations** $\rightarrow$ Click **`prod-release`**.
 3. Highlight the configuration overrides:
    - **Git Commitish**: `main` *(fetches latest merged code)*
-   - **Default Database**: `df-data-prod` *(compiles table targets to Production)*
+   - **Default Database**: `<prod_project_id>` *(compiles table targets to Production)*
 
 ---
 
@@ -229,7 +230,7 @@ Query the production fact table in BigQuery:
 
 ```sql
 SELECT transaction_id, customer_id, transaction_amount, customer_tier, processed_at
-FROM `df-data-prod.analytics_curated.fct_cleaned_transactions`
+FROM `<prod_project_id>.analytics_curated.fct_cleaned_transactions`
 LIMIT 5;
 ```
 
@@ -246,41 +247,41 @@ Verify who executed the queries in BigQuery using `INFORMATION_SCHEMA.JOBS_BY_PR
 
 ```sql
 SELECT job_id, user_email, creation_time, query 
-FROM `region-me-west1.INFORMATION_SCHEMA.JOBS_BY_PROJECT`
-WHERE query LIKE '%df-data-prod.analytics_curated.fct_cleaned_transactions%'
+FROM `region-<region>.INFORMATION_SCHEMA.JOBS_BY_PROJECT`
+WHERE query LIKE '%<prod_project_id>.analytics_curated.fct_cleaned_transactions%'
 ORDER BY creation_time DESC 
 LIMIT 1;
 ```
 
 #### Verification Result:
-- **`user_email`**: **`dataform-executor@df-data-dev.iam.gserviceaccount.com`**
-- **Audit Meaning**: Proves that neither Alice nor Admin accessed production data directly; the execution was performed exclusively by the least-privilege Dataform Service Account.
+- **`user_email`**: **`dataform-executor@<dev_project_id>.iam.gserviceaccount.com`**
+- **Audit Meaning**: Proves that no individual user accessed production data directly; the execution was performed exclusively by the least-privilege Dataform Service Account.
 
 ---
 
 ### 🔍 Proof 3: Source Project Immutability Across All Releases
-Verify that the source project `vars.source_project` remained locked to `df-data-prod.raw_vault`:
+Verify that the source project `vars.source_project` remained locked to `<prod_project_id>.raw_vault`:
 
-1. **In Git ([`workflow_settings.yaml`](file:///Users/liatsabag/Downloads/DataformDevelopment/workflow_settings.yaml))**:
+1. **In Git ([`workflow_settings.yaml`](workflow_settings.yaml))**:
    ```yaml
-   defaultProject: df-data-dev
+   defaultProject: <dev_project_id>
    defaultDataset: analytics_curated
-   defaultLocation: me-west1
+   defaultLocation: <region>
    vars:
-     source_project: df-data-prod
+     source_project: <prod_project_id>
      source_dataset: raw_vault
    ```
 2. **In BigQuery Executed Query Text**:
    ```sql
    SELECT query 
-   FROM `region-me-west1.INFORMATION_SCHEMA.JOBS_BY_PROJECT`
+   FROM `region-<region>.INFORMATION_SCHEMA.JOBS_BY_PROJECT`
    WHERE query LIKE '%stg_transactions%'
    ORDER BY creation_time DESC 
    LIMIT 1;
    ```
    *Query shows*:
    ```sql
-   FROM `df-data-prod.raw_vault.raw_transactions`
+   FROM `<prod_project_id>.raw_vault.raw_transactions`
    ```
 
 ---
@@ -288,7 +289,7 @@ Verify that the source project `vars.source_project` remained locked to `df-data
 ### 🔍 Proof 4: Lineage & Dependency Graph
 In Google Cloud Console $\rightarrow$ **Dataform** $\rightarrow$ Compilation Results:
 - Open the compiled DAG view.
-- Highlight the source declaration node: **`df-data-prod.raw_vault.raw_transactions`** flowing through **`stg_transactions`** into **`df-data-prod.analytics_curated.fct_cleaned_transactions`** and the quality assertions (**`assert_unique_transaction_id`**, **`assert_positive_transaction_amount`**).
+- Highlight the source declaration node: **`<prod_project_id>.raw_vault.raw_transactions`** flowing through **`stg_transactions`** into **`<prod_project_id>.analytics_curated.fct_cleaned_transactions`** and the quality assertions (**`assert_unique_transaction_id`**, **`assert_positive_transaction_amount`**).
 
 ---
 
@@ -296,7 +297,7 @@ In Google Cloud Console $\rightarrow$ **Dataform** $\rightarrow$ Compilation Res
 
 | Evaluation Criteria | Developer Sandbox | DEV Release | PROD Release |
 | :--- | :--- | :--- | :--- |
-| **Executing Identity** | `alice@liatsabag...` | `dataform-executor@...` | `dataform-executor@...` |
-| **Source Project & Dataset** | `df-data-prod.raw_vault` | `df-data-prod.raw_vault` | `df-data-prod.raw_vault` |
-| **Target Project & Dataset** | `df-data-dev.analytics_curated__alice` | `df-data-dev.analytics_curated` | `df-data-prod.analytics_curated` |
+| **Executing Identity** | `<developer_email>` | `dataform-executor@...` | `dataform-executor@...` |
+| **Source Project & Dataset** | `<prod_project_id>.raw_vault` | `<prod_project_id>.raw_vault` | `<prod_project_id>.raw_vault` |
+| **Target Project & Dataset** | `<dev_project_id>.analytics_curated__<developer_workspace>` | `<dev_project_id>.analytics_curated` | `<prod_project_id>.analytics_curated` |
 | **Governance Gate** | Private Sandbox | Git `development` branch | Branch Protection on `main` + PR Review |
