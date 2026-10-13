@@ -1,0 +1,10 @@
+# Node dependencies & caches
+node_modules/
+package-lock.json
+
+# macOS metadata
+.DS_Store
+
+# Temporary planning notes
+wp*_plan.md
+remediation_orchestrator.sh
