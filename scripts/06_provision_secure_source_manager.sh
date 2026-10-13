@@ -126,9 +126,20 @@ else
   echo "✔ Repository '${REPO_ID}' already exists in ${SSM_PROJECT}."
 fi
 
-# Step 6: Configure Main Branch Protection Policy (Protecting 'main')
+# Step 6: Seed Baseline Code to development & main branches
 echo ""
-echo "--- Step 6: Configuring Main Branch Protection Policy on 'main' ---"
+echo "--- Step 6: Seeding Baseline Code to SSM Repository ---"
+SSM_GIT_URL="https://oauth2accesstoken:${TOKEN}@${INSTANCE_ID}-${SSM_PROJECT_NUM}-git.${LOCATION}.sourcemanager.dev/${SSM_PROJECT}/${REPO_ID}.git"
+echo "Pushing codebase baseline to SSM '${DEFAULT_BRANCH}' branch..."
+git push --force "${SSM_GIT_URL}" "${DEFAULT_BRANCH}:${DEFAULT_BRANCH}" >/dev/null 2>&1 || true
+
+# Seed main branch if it does not have pipeline code
+git push "${SSM_GIT_URL}" "${DEFAULT_BRANCH}:main" >/dev/null 2>&1 || true
+echo "✔ Baseline codebase seeded to SSM repository."
+
+# Step 7: Configure Main Branch Protection Policy (Protecting 'main')
+echo ""
+echo "--- Step 7: Configuring Main Branch Protection Policy on 'main' ---"
 TOKEN=$(gcloud auth print-access-token)
 API_BASE="https://securesourcemanager.googleapis.com/v1"
 REPO_PATH="projects/${SSM_PROJECT}/locations/${LOCATION}/repositories/${REPO_ID}"
@@ -171,9 +182,9 @@ else
   echo "✔ Branch protection rule '${RULE_ID}' created."
 fi
 
-# Step 7: Assign Repository Roles in SSM
+# Step 8: Assign Repository Roles in SSM
 echo ""
-echo "--- Step 7: Assigning SSM Repository Roles ---"
+echo "--- Step 8: Assigning SSM Repository Roles ---"
 gcloud source-manager repos add-iam-policy-binding "${REPO_ID}" \
   --region="${LOCATION}" \
   --project="${SSM_PROJECT}" \
@@ -192,9 +203,9 @@ gcloud source-manager repos add-iam-policy-binding "${REPO_ID}" \
   --member="serviceAccount:${DEV_DATAFORM_SA}" \
   --role="roles/securesourcemanager.repoWriter" >/dev/null 2>&1 || true
 
-# Step 8: Configure Developer Connect & Link to Dataform
+# Step 9: Configure Developer Connect & Link to Dataform
 echo ""
-echo "--- Step 8: Configuring Developer Connect & Dataform Remote Link ---"
+echo "--- Step 9: Configuring Developer Connect & Dataform Remote Link ---"
 echo "Granting Developer Connect roles in ${DEV_PROJECT} to Dataform SA..."
 gcloud projects add-iam-policy-binding "${DEV_PROJECT}" \
   --member="serviceAccount:${DEV_DATAFORM_SA}" \
@@ -214,11 +225,26 @@ gcloud projects add-iam-policy-binding "${DEV_PROJECT}" \
 # Create or verify Developer Connect Connection
 CONN_EXISTS=$(gcloud developer-connect connections describe "${CONN_ID}" --location="${LOCATION}" --project="${DEV_PROJECT}" --format="value(name)" 2>/dev/null || echo "NOT_FOUND")
 if [ "${CONN_EXISTS}" = "NOT_FOUND" ]; then
-  echo "Creating Developer Connect Connection '${CONN_ID}'..."
-  gcloud developer-connect connections create "${CONN_ID}" \
-    --location="${LOCATION}" \
-    --project="${DEV_PROJECT}" \
-    --secure-source-manager-instance-config="projects/${SSM_PROJECT}/locations/${LOCATION}/instances/${INSTANCE_ID}"
+  echo "Creating Developer Connect Connection '${CONN_ID}' (with automatic IAM propagation retries)..."
+  MAX_ATTEMPTS=6
+  ATTEMPT=1
+  while [ "${ATTEMPT}" -le "${MAX_ATTEMPTS}" ]; do
+    if gcloud developer-connect connections create "${CONN_ID}" \
+      --location="${LOCATION}" \
+      --project="${DEV_PROJECT}" \
+      --secure-source-manager-instance-config="projects/${SSM_PROJECT}/locations/${LOCATION}/instances/${INSTANCE_ID}"; then
+      echo "✔ Developer Connect Connection '${CONN_ID}' created."
+      break
+    else
+      echo "⚠️ Connection creation failed on attempt ${ATTEMPT}/${MAX_ATTEMPTS}. Waiting 15s for SSM IAM propagation..."
+      ATTEMPT=$((ATTEMPT + 1))
+      if [ "${ATTEMPT}" -gt "${MAX_ATTEMPTS}" ]; then
+        echo "✘ Failed to create Developer Connect connection after ${MAX_ATTEMPTS} attempts."
+        exit 1
+      fi
+      sleep 15
+    fi
+  done
 fi
 
 # Enable Git Proxy on Developer Connect Connection
