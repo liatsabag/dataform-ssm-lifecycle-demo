@@ -244,6 +244,12 @@ gcloud source-manager repos add-iam-policy-binding "${REPO_ID}" \
   --region="${LOCATION}" \
   --project="${SSM_PROJECT}" \
   --member="serviceAccount:${DEV_DEVCONNECT_SA}" \
+  --role="roles/securesourcemanager.developerConnectLinker" >/dev/null 2>&1 || true
+
+gcloud source-manager repos add-iam-policy-binding "${REPO_ID}" \
+  --region="${LOCATION}" \
+  --project="${SSM_PROJECT}" \
+  --member="serviceAccount:${DEV_DEVCONNECT_SA}" \
   --role="roles/securesourcemanager.repoWriter" >/dev/null 2>&1 || true
 
 gcloud source-manager repos add-iam-policy-binding "${REPO_ID}" \
@@ -309,12 +315,27 @@ LINK_EXISTS=$(gcloud developer-connect connections git-repository-links describe
 CLONE_URI="https://${INSTANCE_ID}-${SSM_PROJECT_NUM}-git.${LOCATION}.sourcemanager.dev/${SSM_PROJECT}/${REPO_ID}.git"
 
 if [ "${LINK_EXISTS}" = "NOT_FOUND" ]; then
-  echo "Creating Developer Connect Git Repository Link '${REPO_ID}'..."
-  gcloud developer-connect connections git-repository-links create "${REPO_ID}" \
-    --connection="${CONN_ID}" \
-    --location="${LOCATION}" \
-    --project="${DEV_PROJECT}" \
-    --clone-uri="${CLONE_URI}"
+  echo "Creating Developer Connect Git Repository Link '${REPO_ID}' (with retry for IAM propagation)..."
+  MAX_LINK_ATTEMPTS=5
+  LINK_ATTEMPT=1
+  while [ "${LINK_ATTEMPT}" -le "${MAX_LINK_ATTEMPTS}" ]; do
+    if gcloud developer-connect connections git-repository-links create "${REPO_ID}" \
+      --connection="${CONN_ID}" \
+      --location="${LOCATION}" \
+      --project="${DEV_PROJECT}" \
+      --clone-uri="${CLONE_URI}"; then
+      echo "✔ Git Repository Link '${REPO_ID}' created."
+      break
+    else
+      echo "⚠️ Git link creation failed on attempt ${LINK_ATTEMPT}/${MAX_LINK_ATTEMPTS}. Waiting 10s..."
+      LINK_ATTEMPT=$((LINK_ATTEMPT + 1))
+      if [ "${LINK_ATTEMPT}" -gt "${MAX_LINK_ATTEMPTS}" ]; then
+        echo "✘ Failed to create Git repository link after ${MAX_LINK_ATTEMPTS} attempts."
+        exit 1
+      fi
+      sleep 10
+    fi
+  done
 fi
 
 echo ""

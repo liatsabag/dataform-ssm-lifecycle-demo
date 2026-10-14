@@ -25,12 +25,12 @@ echo ""
 echo ">>> [Test 1/5] Anti-Hijacking & Cross-Project Source Resolution Test <<<"
 COMPILE_JSON=$(cd "$(dirname "$0")/.." && npx -y @dataform/cli compile --json 2>/dev/null)
 
-SOURCE_DB=$(echo "${COMPILE_JSON}" | grep -o '"database": "df-data-prod"' | head -n 1 || true)
+SOURCE_DB=$(echo "${COMPILE_JSON}" | grep -o "\"database\": \"${PROD_PROJECT}\"" | head -n 1 || true)
 SOURCE_SCHEMA=$(echo "${COMPILE_JSON}" | grep -o '"schema": "raw_vault"' | head -n 1 || true)
-TARGET_DB=$(echo "${COMPILE_JSON}" | grep -o '"database": "df-data-dev"' | head -n 1 || true)
+TARGET_DB=$(echo "${COMPILE_JSON}" | grep -o "\"database\": \"${DEV_PROJECT}\"" | head -n 1 || true)
 
 if [ -n "${SOURCE_DB}" ] && [ -n "${SOURCE_SCHEMA}" ] && [ -n "${TARGET_DB}" ]; then
-  echo "✔ PASS: DAG correctly resolves upstream source to df-data-prod:raw_vault and target to df-data-dev."
+  echo "✔ PASS: DAG correctly resolves upstream source to ${PROD_PROJECT}:raw_vault and target to ${DEV_PROJECT}."
   PASSED_TESTS=$((PASSED_TESTS + 1))
 else
   echo "✘ FAIL: Source anti-hijacking resolution failed in compiled DAG."

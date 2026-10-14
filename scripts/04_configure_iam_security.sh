@@ -55,7 +55,12 @@ echo ""
 echo "--- Step 3: Granting Project-Level Roles ---"
 
 # Developer Permissions
-echo "Granting roles/dataform.editor & bigquery.jobUser to Developer (${DEVELOPER}) in DEV..."
+echo "Granting roles/viewer, roles/dataform.editor & bigquery.jobUser to Developer (${DEVELOPER}) in DEV..."
+gcloud projects add-iam-policy-binding "${DEV_PROJECT}" \
+  --member="user:${DEVELOPER}" \
+  --role="roles/viewer" \
+  --condition=None >/dev/null 2>&1 || true
+
 gcloud projects add-iam-policy-binding "${DEV_PROJECT}" \
   --member="user:${DEVELOPER}" \
   --role="roles/dataform.editor" \
@@ -64,6 +69,12 @@ gcloud projects add-iam-policy-binding "${DEV_PROJECT}" \
 gcloud projects add-iam-policy-binding "${DEV_PROJECT}" \
   --member="user:${DEVELOPER}" \
   --role="roles/bigquery.jobUser" \
+  --condition=None >/dev/null 2>&1 || true
+
+echo "Granting roles/viewer to Developer (${DEVELOPER}) in PROD (${PROD_PROJECT})..."
+gcloud projects add-iam-policy-binding "${PROD_PROJECT}" \
+  --member="user:${DEVELOPER}" \
+  --role="roles/viewer" \
   --condition=None >/dev/null 2>&1 || true
 
 echo "Granting roles/viewer & securesourcemanager.instanceAccessor to Developer (${DEVELOPER}) in SSM (${SSM_PROJECT})..."
