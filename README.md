@@ -171,10 +171,7 @@ Compiles and materializes baseline tables in BigQuery:
 ### 10. [`10_verify_pipeline_and_assertions.sh`](scripts/10_verify_pipeline_and_assertions.sh) *(Pipeline Quality Verification)*
 5-test verification suite validating DAG compilation, source anti-hijacking resolution, staging cleansing, fact table deduplication, partitioning/clustering metadata, and assertion results.
 
-### 11. [`11_demonstrate_dev_to_prod_lifecycle.sh`](scripts/11_demonstrate_dev_to_prod_lifecycle.sh) *(CLI Demonstration Runner)*
-Interactive end-to-end demonstration simulating developer feature addition (`customer_tier`), direct push rejection on `main`, push to `development`, DEV execution, and BigQuery target verification.
-
-### 12. [`12_reset_demo_state.sh`](scripts/12_reset_demo_state.sh) *(Hard Reset & Cleanup)*
+### 11. [`12_reset_demo_state.sh`](scripts/12_reset_demo_state.sh) *(Hard Reset & Cleanup)*
 Restores all environments, branches, and tables to pristine **v1.0 baseline**:
 - Resets Git branches `main` and `development` back to baseline commit (without `customer_tier`).
 - Re-enables SSM branch protection rule `main-protection`.
@@ -184,18 +181,15 @@ Restores all environments, branches, and tables to pristine **v1.0 baseline**:
 
 ---
 
-## 🎬 Running & Resetting the Demo
+## 🎬 Presenting & Resetting the Demo
 
-1. **Reset to Baseline Anytime**:
+1. **Present Live via Google Cloud Console**:
+   Follow the step-by-step narrative and talking points in [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md) and [`DEMO_GUIDE.md`](DEMO_GUIDE.md).
+
+2. **Reset to Baseline Anytime**:
    ```bash
    ./scripts/12_reset_demo_state.sh
    ```
-
-2. **Run the Interactive CLI Lifecycle Demo**:
-   ```bash
-   ./scripts/11_demonstrate_dev_to_prod_lifecycle.sh
-   ```
-   *(Or present via the Google Cloud Web Console following [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md)).*
 
 ### Web Console Shortcuts:
 * **Secure Source Manager Console**:
