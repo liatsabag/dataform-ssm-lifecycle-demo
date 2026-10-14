@@ -33,13 +33,16 @@ echo "  • PROD: ${PROD_PROJECT:-<None>}"
 echo "  • SSM : ${SSM_PROJECT:-<None>}"
 echo "==================================================================="
 
+TOKEN=$(gcloud auth print-access-token 2>/dev/null || true)
+
 # 1. Delete Dataform Repository in DEV
 if [ -n "${DEV_PROJECT:-}" ]; then
   echo "1. Deleting Dataform repository in ${DEV_PROJECT}..."
-  gcloud dataform repositories delete "${REPO_ID}" \
-    --location="${LOCATION}" \
-    --project="${DEV_PROJECT}" \
-    --quiet 2>/dev/null || true
+  if [ -n "${TOKEN:-}" ]; then
+    curl -s -X DELETE \
+      -H "Authorization: Bearer ${TOKEN}" \
+      "https://dataform.googleapis.com/v1beta1/projects/${DEV_PROJECT}/locations/${LOCATION}/repositories/${REPO_ID}?force=true" >/dev/null 2>&1 || true
+  fi
 
   # 2. Delete Developer Connect Connection in DEV
   echo "2. Deleting Developer Connect connection in ${DEV_PROJECT}..."
@@ -52,6 +55,8 @@ if [ -n "${DEV_PROJECT:-}" ]; then
   echo "3. Deleting BigQuery datasets in ${DEV_PROJECT}..."
   bq rm -r -f -d "${DEV_PROJECT}:${TARGET_DATASET}" 2>/dev/null || true
   bq rm -r -f -d "${DEV_PROJECT}:${ASSERTION_DATASET}" 2>/dev/null || true
+  bq rm -r -f -d "${DEV_PROJECT}:${TARGET_DATASET}_${DEVELOPER_WORKSPACE}" 2>/dev/null || true
+  bq rm -r -f -d "${DEV_PROJECT}:${ASSERTION_DATASET}_${DEVELOPER_WORKSPACE}" 2>/dev/null || true
   bq rm -r -f -d "${DEV_PROJECT}:${TARGET_DATASET}__${DEVELOPER_WORKSPACE}" 2>/dev/null || true
 
   # 4. Delete Service Account in DEV
