@@ -16,10 +16,10 @@ if [ -z "${BILLING_ID:-}" ]; then
   if [ -n "${SSM_PROJECT:-}" ]; then
     BILLING_ID=$(gcloud billing projects describe "${SSM_PROJECT}" --format="value(billingAccountName)" 2>/dev/null | sed 's|billingAccounts/||' || true)
   fi
-  if [ -z "${BILLING_ID:-}" ]; then
+  if [ -z "${BILLING_ID}" ]; then
     BILLING_ID=$(gcloud billing accounts list --filter="open=true" --format="value(ACCOUNT_ID)" --limit=1 2>/dev/null || true)
   fi
-  if [ -n "${BILLING_ID:-}" ]; then
+  if [ -n "${BILLING_ID}" ]; then
     echo "✔ Auto-detected Billing Account: ${BILLING_ID}"
   fi
 fi
@@ -35,15 +35,13 @@ if [ -z "${FOLDER_ID:-}" ] && [ -n "${SSM_PROJECT:-}" ]; then
   fi
 fi
 
-# Function to provision or validate a project with dynamic ID generation
+# Function to provision or validate a project with dynamic ID generation from project name
 provision_project() {
   local id_var="$1"          # e.g. DEV_PROJECT
   local name_var="$2"        # e.g. DEV_PROJECT_NAME
-  local prefix_var="$3"      # e.g. DEV_PROJECT_PREFIX
   
   local current_id="${!id_var:-}"
-  local name="${!name_var:-${current_id}}"
-  local prefix="${!prefix_var:-df-demo}"
+  local name="${!name_var:-df-demo}"
   
   local is_active="false"
   if [ -n "${current_id}" ]; then
@@ -58,12 +56,14 @@ provision_project() {
   if [ "${is_active}" = "true" ]; then
     echo "✔ Project ${target_id} ('${name}') already exists and is ACTIVE."
   else
-    # Generate unique, compliant project ID (prefix + 4 random hex chars, length <= 30)
+    # Derive unique, compliant project ID directly from the name (max 30 chars, lowercase, digits, hyphens)
+    local base_slug
+    base_slug=$(echo "${name}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed 's/^-*//; s/-*$//' | cut -c 1-22)
     local rand_suffix
-    rand_suffix=$(head -c 16 /dev/urandom | shasum | head -c 4)
-    target_id="${prefix}-${rand_suffix}"
+    rand_suffix=$(head -c 16 /dev/urandom | shasum | head -c 5)
+    target_id="${base_slug}-${rand_suffix}"
     
-    echo "Creating project ${target_id} with display name '${name}'..."
+    echo "Creating project ${target_id} with name '${name}'..."
     if [ -n "${FOLDER_ID:-}" ]; then
       gcloud projects create "${target_id}" --name="${name}" --folder="${FOLDER_ID}" || \
       gcloud projects create "${target_id}" --name="${name}"
@@ -98,9 +98,9 @@ echo "=== Step 1: Provisioning Projects & Enabling APIs               ==="
 echo "==================================================================="
 
 # 1. Provision all 3 projects
-provision_project "DEV_PROJECT" "DEV_PROJECT_NAME" "DEV_PROJECT_PREFIX"
-provision_project "PROD_PROJECT" "PROD_PROJECT_NAME" "PROD_PROJECT_PREFIX"
-provision_project "SSM_PROJECT" "SSM_PROJECT_NAME" "SSM_PROJECT_PREFIX"
+provision_project "DEV_PROJECT" "DEV_PROJECT_NAME"
+provision_project "PROD_PROJECT" "PROD_PROJECT_NAME"
+provision_project "SSM_PROJECT" "SSM_PROJECT_NAME"
 
 # Reload config.env to ensure resolved project IDs are active in current subshell
 # shellcheck source=/dev/null
@@ -123,9 +123,9 @@ fi
 
 echo ""
 echo "==================================================================="
-echo "DEV Project : ${DEV_PROJECT} (${DEV_PROJECT_NAME})"
-echo "PROD Project: ${PROD_PROJECT} (${PROD_PROJECT_NAME})"
-echo "SSM Project : ${SSM_PROJECT} (${SSM_PROJECT_NAME})"
+echo "DEV Project : ${DEV_PROJECT} (Name: ${DEV_PROJECT_NAME})"
+echo "PROD Project: ${PROD_PROJECT} (Name: ${PROD_PROJECT_NAME})"
+echo "SSM Project : ${SSM_PROJECT} (Name: ${SSM_PROJECT_NAME})"
 echo "Billing ID  : ${BILLING_ID:-<Auto/Unset>}"
 echo "Folder ID   : ${FOLDER_ID:-<Root/Unset>}"
 echo "==================================================================="
