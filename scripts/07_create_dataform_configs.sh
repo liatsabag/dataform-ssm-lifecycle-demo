@@ -38,6 +38,10 @@ DF_PAYLOAD=$(cat <<EOF
     "url": "${CLONE_URI}",
     "defaultBranch": "${DEFAULT_BRANCH}",
     "gitRepositoryLink": "${GIT_REPO_LINK}"
+  },
+  "workspaceCompilationOverrides": {
+    "defaultDatabase": "${DEV_PROJECT}",
+    "schemaSuffix": "\${workspaceName}"
   }
 }
 EOF
@@ -52,12 +56,12 @@ if [ "${REPO_CHECK}" = "404" ]; then
     "https://dataform.googleapis.com/v1beta1/projects/${DEV_PROJECT}/locations/${LOCATION}/repositories?repositoryId=${REPO_ID}" >/dev/null
   echo "✔ Dataform repository '${REPO_ID}' created."
 else
-  echo "Updating Dataform repository remote settings..."
+  echo "Updating Dataform repository remote settings & workspace compilation overrides..."
   curl -s -X PATCH \
     -H "Authorization: Bearer ${TOKEN}" \
     -H "Content-Type: application/json" \
     -d "${DF_PAYLOAD}" \
-    "https://dataform.googleapis.com/v1beta1/projects/${DEV_PROJECT}/locations/${LOCATION}/repositories/${REPO_ID}?updateMask=gitRemoteSettings" >/dev/null
+    "https://dataform.googleapis.com/v1beta1/projects/${DEV_PROJECT}/locations/${LOCATION}/repositories/${REPO_ID}?updateMask=gitRemoteSettings,workspaceCompilationOverrides" >/dev/null
   echo "✔ Dataform repository '${REPO_ID}' settings updated."
 fi
 
