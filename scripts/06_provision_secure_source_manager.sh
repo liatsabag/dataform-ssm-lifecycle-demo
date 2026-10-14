@@ -30,6 +30,7 @@ gcloud services enable developerconnect.googleapis.com dataform.googleapis.com -
 
 # Step 2: Resolve Project Numbers & Service Agents
 echo "--- Step 2: Resolving Project Numbers & Identities ---"
+TOKEN=$(gcloud auth print-access-token)
 SSM_PROJECT_NUM=$(gcloud projects describe "${SSM_PROJECT}" --format="value(projectNumber)")
 DEV_PROJECT_NUM=$(gcloud projects describe "${DEV_PROJECT}" --format="value(projectNumber)")
 PROD_PROJECT_NUM=$(gcloud projects describe "${PROD_PROJECT}" --format="value(projectNumber)")
