@@ -71,6 +71,11 @@ gcloud projects add-iam-policy-binding "${DEV_PROJECT}" \
   --role="roles/bigquery.jobUser" \
   --condition=None >/dev/null 2>&1 || true
 
+gcloud projects add-iam-policy-binding "${DEV_PROJECT}" \
+  --member="user:${DEVELOPER}" \
+  --role="roles/bigquery.dataEditor" \
+  --condition=None >/dev/null 2>&1 || true
+
 echo "Granting roles/viewer to Developer (${DEVELOPER}) in PROD (${PROD_PROJECT})..."
 gcloud projects add-iam-policy-binding "${PROD_PROJECT}" \
   --member="user:${DEVELOPER}" \

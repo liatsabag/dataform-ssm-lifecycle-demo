@@ -45,5 +45,18 @@ bq --location="${LOCATION}" mk --dataset \
   --description="DEV Dataform test assertions dataset" \
   "${DEV_PROJECT}:dataform_assertions" 2>/dev/null || echo "dataform_assertions already exists in DEV"
 
+# 6. DEV: Developer Sandbox Datasets (e.g. analytics_curated_bob & dataform_assertions_bob)
+if [ -n "${DEVELOPER_WORKSPACE:-}" ]; then
+  echo ""
+  echo ">>> Creating Developer Sandbox Datasets in DEV for workspace '${DEVELOPER_WORKSPACE}'..."
+  bq --location="${LOCATION}" mk --dataset \
+    --description="Developer sandbox curated dataset for workspace ${DEVELOPER_WORKSPACE}" \
+    "${DEV_PROJECT}:${TARGET_DATASET}_${DEVELOPER_WORKSPACE}" 2>/dev/null || echo "${TARGET_DATASET}_${DEVELOPER_WORKSPACE} already exists in DEV"
+
+  bq --location="${LOCATION}" mk --dataset \
+    --description="Developer sandbox assertions dataset for workspace ${DEVELOPER_WORKSPACE}" \
+    "${DEV_PROJECT}:${ASSERTION_DATASET}_${DEVELOPER_WORKSPACE}" 2>/dev/null || echo "${ASSERTION_DATASET}_${DEVELOPER_WORKSPACE} already exists in DEV"
+fi
+
 echo ""
-echo "✔ Core datasets created. Note: Developer sandbox datasets (e.g., analytics_curated__alice) are dynamically created on first execution by Dataform."
+echo "✔ Core datasets and developer sandbox datasets initialized successfully."
