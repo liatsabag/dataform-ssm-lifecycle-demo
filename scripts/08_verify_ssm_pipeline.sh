@@ -8,6 +8,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../config.env"
 
+# Auto-resolve placeholder developer identity to active gcloud account
+if [[ "${DEVELOPER:-}" == *"@mydomain.com"* ]] || [ -z "${DEVELOPER:-}" ]; then
+  DEVELOPER=$(gcloud config get-value account 2>/dev/null || echo "${DEVELOPER}")
+fi
+
 echo "==================================================================="
 echo "=== Step 8: Comprehensive SSM & Developer Connect Verification  ==="
 echo "==================================================================="
