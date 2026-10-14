@@ -117,11 +117,35 @@ gcloud projects add-iam-policy-binding "${PROD_PROJECT}" \
   --role="roles/bigquery.jobUser" \
   --condition=None >/dev/null 2>&1 || true
 
-# Grant Dataform SA permission to impersonate Executor SA
-echo "Granting roles/iam.serviceAccountTokenCreator on Executor SA to Dataform SA..."
+# Grant Dataform SA and Developer permission to use/impersonate Executor SA
+echo "Granting roles/iam.serviceAccountUser & roles/iam.serviceAccountTokenCreator on Executor SA..."
 gcloud iam service-accounts add-iam-policy-binding "${EXECUTOR_SA}" \
   --project="${DEV_PROJECT}" \
   --member="serviceAccount:${DEV_DATAFORM_SA}" \
+  --role="roles/iam.serviceAccountUser" \
+  --condition=None >/dev/null 2>&1 || true
+
+gcloud iam service-accounts add-iam-policy-binding "${EXECUTOR_SA}" \
+  --project="${DEV_PROJECT}" \
+  --member="serviceAccount:${PROD_DATAFORM_SA}" \
+  --role="roles/iam.serviceAccountUser" \
+  --condition=None >/dev/null 2>&1 || true
+
+gcloud iam service-accounts add-iam-policy-binding "${EXECUTOR_SA}" \
+  --project="${DEV_PROJECT}" \
+  --member="user:${DEVELOPER}" \
+  --role="roles/iam.serviceAccountUser" \
+  --condition=None >/dev/null 2>&1 || true
+
+gcloud iam service-accounts add-iam-policy-binding "${EXECUTOR_SA}" \
+  --project="${DEV_PROJECT}" \
+  --member="serviceAccount:${DEV_DATAFORM_SA}" \
+  --role="roles/iam.serviceAccountTokenCreator" \
+  --condition=None >/dev/null 2>&1 || true
+
+gcloud iam service-accounts add-iam-policy-binding "${EXECUTOR_SA}" \
+  --project="${DEV_PROJECT}" \
+  --member="serviceAccount:${PROD_DATAFORM_SA}" \
   --role="roles/iam.serviceAccountTokenCreator" \
   --condition=None >/dev/null 2>&1 || true
 
@@ -209,7 +233,7 @@ grant_dataset_role(dev_proj, "dataform_assertions", executor_sa, "roles/bigquery
 grant_dataset_role(prod_proj, "raw_vault", developer, "roles/bigquery.dataViewer")
 grant_dataset_role(prod_proj, "raw_vault", dev_sa, "roles/bigquery.dataViewer")
 grant_dataset_role(prod_proj, "raw_vault", prod_sa, "roles/bigquery.dataViewer")
-grant_dataset_role(prod_proj, "raw_vault", executor_sa, "roles/bigquery.dataViewer")
+grant_dataset_role(prod_proj, "raw_vault", executor_sa, "roles/bigquery.dataEditor")
 
 grant_dataset_role(prod_proj, "analytics_curated", prod_sa, "roles/bigquery.dataEditor")
 grant_dataset_role(prod_proj, "dataform_assertions", prod_sa, "roles/bigquery.dataEditor")
