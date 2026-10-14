@@ -81,9 +81,19 @@ else
   echo "✔ SSM Instance '${INSTANCE_ID}' is ACTIVE."
 fi
 
-# Step 4: Bind Instance-Level IAM Roles
+# Step 4: Bind Instance & Project Level IAM Roles
 echo ""
-echo "--- Step 4: Granting Instance-Level Access in ${SSM_PROJECT} ---"
+echo "--- Step 4: Granting Instance & Project Level Access in ${SSM_PROJECT} ---"
+gcloud projects add-iam-policy-binding "${SSM_PROJECT}" \
+  --member="user:${DEVELOPER}" \
+  --role="roles/viewer" \
+  --condition=None >/dev/null 2>&1 || true
+
+gcloud projects add-iam-policy-binding "${SSM_PROJECT}" \
+  --member="user:${DEVELOPER}" \
+  --role="roles/securesourcemanager.instanceAccessor" \
+  --condition=None >/dev/null 2>&1 || true
+
 gcloud source-manager instances add-iam-policy-binding "${INSTANCE_ID}" \
   --region="${LOCATION}" \
   --project="${SSM_PROJECT}" \
@@ -127,25 +137,58 @@ else
   echo "✔ Repository '${REPO_ID}' already exists in ${SSM_PROJECT}."
 fi
 
-# Step 6: Seed Baseline Code to development & main branches
+# Step 6: Seed Clean Baseline Dataform Code to main & development branches
 echo ""
-echo "--- Step 6: Seeding Baseline Code to SSM Repository ---"
-SSM_GIT_URL="https://oauth2accesstoken:${TOKEN}@${INSTANCE_ID}-${SSM_PROJECT_NUM}-git.${LOCATION}.sourcemanager.dev/${SSM_PROJECT}/${REPO_ID}.git"
-echo "Pushing codebase baseline to SSM '${DEFAULT_BRANCH}' branch..."
-git push --force "${SSM_GIT_URL}" "${DEFAULT_BRANCH}:${DEFAULT_BRANCH}" >/dev/null 2>&1 || true
+echo "--- Step 6: Seeding Clean Dataform Codebase to SSM Repository ---"
+TEMP_DATA_DIR=$(mktemp -d)
+cp "${SCRIPT_DIR}/../workflow_settings.yaml" "${TEMP_DATA_DIR}/"
+cp -r "${SCRIPT_DIR}/../definitions" "${TEMP_DATA_DIR}/"
+if [ -f "${SCRIPT_DIR}/../package.json" ]; then
+  cp "${SCRIPT_DIR}/../package.json" "${TEMP_DATA_DIR}/"
+fi
+if [ -d "${SCRIPT_DIR}/../includes" ]; then
+  cp -r "${SCRIPT_DIR}/../includes" "${TEMP_DATA_DIR}/"
+fi
 
-# Seed main branch if it does not have pipeline code
-git push "${SSM_GIT_URL}" "${DEFAULT_BRANCH}:main" >/dev/null 2>&1 || true
-echo "✔ Baseline codebase seeded to SSM repository."
+cat << 'EOF' > "${TEMP_DATA_DIR}/.gitignore"
+.DS_Store
+*.log
+node_modules/
+EOF
 
-# Step 7: Configure Main Branch Protection Policy (Protecting 'main')
-echo ""
-echo "--- Step 7: Configuring Main Branch Protection Policy on 'main' ---"
-TOKEN=$(gcloud auth print-access-token)
 API_BASE="https://securesourcemanager.googleapis.com/v1"
 REPO_PATH="projects/${SSM_PROJECT}/locations/${LOCATION}/repositories/${REPO_ID}"
 RULE_ID="main-protection"
 
+# Temporarily delete branch rule if exists so main can be seeded directly
+curl -s -X DELETE \
+  -H "Authorization: Bearer ${TOKEN}" \
+  "${API_BASE}/${REPO_PATH}/branchRules/${RULE_ID}" >/dev/null 2>&1 || true
+
+(
+  cd "${TEMP_DATA_DIR}"
+  git init >/dev/null 2>&1
+  git config user.name "Dataform Automation"
+  git config user.email "dataform@google.com"
+  git checkout -b main >/dev/null 2>&1 || git checkout -B main >/dev/null 2>&1
+  git add .
+  git commit -m "feat: initial dataform 3-tier pipeline baseline" >/dev/null 2>&1
+  git branch -M main >/dev/null 2>&1
+  git checkout -b development >/dev/null 2>&1
+
+  SSM_GIT_URL="https://oauth2accesstoken:${TOKEN}@${INSTANCE_ID}-${SSM_PROJECT_NUM}-git.${LOCATION}.sourcemanager.dev/${SSM_PROJECT}/${REPO_ID}.git"
+  echo "Pushing clean Dataform code to SSM 'main' branch..."
+  git push --force "${SSM_GIT_URL}" main:main >/dev/null 2>&1 || true
+
+  echo "Pushing clean Dataform code to SSM 'development' branch..."
+  git push --force "${SSM_GIT_URL}" development:development >/dev/null 2>&1 || true
+)
+rm -rf "${TEMP_DATA_DIR}"
+echo "✔ Clean Dataform codebase seeded to both 'main' and 'development' branches."
+
+# Step 7: Configure Main Branch Protection Policy (Protecting 'main')
+echo ""
+echo "--- Step 7: Configuring Main Branch Protection Policy on 'main' ---"
 BRANCH_RULE_PAYLOAD=$(cat <<EOF
 {
   "includePattern": "main",
@@ -190,7 +233,7 @@ gcloud source-manager repos add-iam-policy-binding "${REPO_ID}" \
   --region="${LOCATION}" \
   --project="${SSM_PROJECT}" \
   --member="user:${DEVELOPER}" \
-  --role="roles/securesourcemanager.repoWriter" >/dev/null 2>&1 || true
+  --role="roles/securesourcemanager.repoAdmin" >/dev/null 2>&1 || true
 
 gcloud source-manager repos add-iam-policy-binding "${REPO_ID}" \
   --region="${LOCATION}" \

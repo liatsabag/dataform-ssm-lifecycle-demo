@@ -22,6 +22,7 @@ echo "Developer   : ${DEVELOPER}"
 echo "Conn ID     : ${CONN_ID}"
 echo "==================================================================="
 
+SSM_PROJECT_NUM=$(gcloud projects describe "${SSM_PROJECT}" --format="value(projectNumber)")
 DEV_PROJECT_NUM=$(gcloud projects describe "${DEV_PROJECT}" --format="value(projectNumber)")
 PROD_PROJECT_NUM=$(gcloud projects describe "${PROD_PROJECT}" --format="value(projectNumber)")
 
@@ -55,11 +56,17 @@ REPO_NAME=$(gcloud source-manager repos describe "${REPO_ID}" \
   --project="${SSM_PROJECT}" \
   --format="value(name)" 2>/dev/null || echo "NOT_FOUND")
 
-if [ "${REPO_NAME}" != "NOT_FOUND" ]; then
-  echo "✔ PASS: Repository '${REPO_ID}' exists in '${SSM_PROJECT}'."
+SSM_GIT_URL="https://oauth2accesstoken:${TOKEN}@${INSTANCE_ID}-${SSM_PROJECT_NUM}-git.${LOCATION}.sourcemanager.dev/${SSM_PROJECT}/${REPO_ID}.git"
+REMOTE_BRANCHES=$(git ls-remote --heads "${SSM_GIT_URL}" 2>/dev/null || true)
+
+HAS_MAIN=$(echo "${REMOTE_BRANCHES}" | grep -c "refs/heads/main" || true)
+HAS_DEV=$(echo "${REMOTE_BRANCHES}" | grep -c "refs/heads/development" || true)
+
+if [ "${REPO_NAME}" != "NOT_FOUND" ] && [ "${HAS_MAIN}" -ge 1 ] && [ "${HAS_DEV}" -ge 1 ]; then
+  echo "✔ PASS: Repository '${REPO_ID}' exists in '${SSM_PROJECT}' with both 'main' and 'development' branches."
   PASSED_TESTS=$((PASSED_TESTS + 1))
 else
-  echo "✘ FAIL: Repository '${REPO_ID}' not found in '${SSM_PROJECT}'."
+  echo "✘ FAIL: Repository '${REPO_ID}' missing or required branches ('main'/'development') not found."
 fi
 
 # Test 3: Branch Protection Policy

@@ -61,6 +61,17 @@ gcloud projects add-iam-policy-binding "${DEV_PROJECT}" \
   --role="roles/bigquery.jobUser" \
   --condition=None >/dev/null 2>&1 || true
 
+echo "Granting roles/viewer & securesourcemanager.instanceAccessor to Developer (${DEVELOPER}) in SSM (${SSM_PROJECT})..."
+gcloud projects add-iam-policy-binding "${SSM_PROJECT}" \
+  --member="user:${DEVELOPER}" \
+  --role="roles/viewer" \
+  --condition=None >/dev/null 2>&1 || true
+
+gcloud projects add-iam-policy-binding "${SSM_PROJECT}" \
+  --member="user:${DEVELOPER}" \
+  --role="roles/securesourcemanager.instanceAccessor" \
+  --condition=None >/dev/null 2>&1 || true
+
 # Dataform Service Agents Permissions
 echo "Granting bigquery.jobUser to Dataform Service Agents..."
 gcloud projects add-iam-policy-binding "${DEV_PROJECT}" \
