@@ -65,12 +65,29 @@ provision_project() {
     
     echo "Creating project ${target_id} with name '${name}'..."
     if [ -n "${FOLDER_ID:-}" ]; then
-      gcloud projects create "${target_id}" --name="${name}" --folder="${FOLDER_ID}" || \
-      gcloud projects create "${target_id}" --name="${name}"
+      gcloud projects create "${target_id}" --name="${name}" --folder="${FOLDER_ID}" 2>/dev/null || \
+      gcloud projects create "${target_id}" --name="${name}" 2>/dev/null || true
     else
-      gcloud projects create "${target_id}" --name="${name}"
+      gcloud projects create "${target_id}" --name="${name}" 2>/dev/null || true
     fi
-    echo "✔ Project ${target_id} created successfully."
+
+    # Wait and verify project is ACTIVE in GCP
+    local verified="false"
+    for _ in {1..10}; do
+      local state
+      state=$(gcloud projects describe "${target_id}" --format="value(lifecycleState)" 2>/dev/null || echo "NOT_FOUND")
+      if [ "${state}" = "ACTIVE" ]; then
+        verified="true"
+        break
+      fi
+      sleep 2
+    done
+
+    if [ "${verified}" != "true" ]; then
+      echo "❌ Failed to create or reach project ${target_id}"
+      exit 1
+    fi
+    echo "✔ Project ${target_id} created and is ACTIVE."
     
     # Update or append project ID dynamically to config.env
     python3 -c "
