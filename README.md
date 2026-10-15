@@ -102,26 +102,37 @@ flowchart LR
 
 ---
 
-## 🚀 Step-by-Step Deployment & Automation Scripts
+## 🚀 Deployment & Automation Suite
 
-All scripts are located in [`scripts/`](scripts/) and automatically source configuration parameters from the central [`config.env`](config.env) file at the project root:
-- `DEV_PROJECT` (e.g. `<dev_project_id>`)
-- `PROD_PROJECT` (e.g. `<prod_project_id>`)
-- `SSM_PROJECT` (e.g. `<ssm_project_id>`)
-- `LOCATION` (e.g. `<region>`)
-- `DEVELOPER` (e.g. `<developer_email>`)
-- `BILLING_ID`, `INSTANCE_ID`, `REPO_ID`, `CONN_ID`, etc.
-
-### 🌟 Quick Start: One-Click End-to-End Deployment
-To deploy and verify the entire environment from start to finish, run:
-```bash
-./scripts/00_deploy_all.sh
-```
-*(This automatically runs Steps 01 through 10 in sequence with full progress reporting).*
+> [!IMPORTANT]
+> ### ⚠️ Mandatory Step 0: Configure Your Environment (`config.env`)
+> **Before running the automated deployment or any script, you MUST open and edit [`config.env`](config.env) with your specific Google Cloud settings and demo persona:**
+>
+> ```bash
+> # Open config.env in your editor:
+> nano config.env
+> ```
+>
+> **Key Parameters to Customize:**
+> * `DEVELOPER`: The Google Cloud / Google Workspace email representing the developer persona (e.g. `bob@yourdomain.com`).
+> * `DEVELOPER_WORKSPACE`: Name of the developer's Dataform workspace (e.g. `bob`).
+> * `LOCATION`: Target Google Cloud region for BigQuery, Dataform, and SSM (e.g. `me-west1`, `us-central1`).
+> * `DEV_PROJECT_NAME`, `PROD_PROJECT_NAME`, `SSM_PROJECT_NAME`: Display prefixes for your 3 projects.
+> * `BILLING_ID` *(optional)*: Your Cloud Billing Account ID (leave blank to auto-detect via `gcloud`).
 
 ---
 
-### Step-by-Step Individual Scripts
+### 🌟 Quick Start: One-Click End-to-End Deployment
+Once `config.env` is configured with your settings, run the master deployment script to provision infrastructure, configure IAM, link SSM, and execute the baseline ELT pipeline:
+
+```bash
+./scripts/00_deploy_all.sh
+```
+*(This automatically runs Steps 01 through 10 in sequence with comprehensive validation and progress logging).*
+
+---
+
+### 📜 Step-by-Step Individual Scripts
 
 ### 1. [`01_provision_projects.sh`](scripts/01_provision_projects.sh) *(Project Provisioning & API Activation)*
 Provisions / validates all three Google Cloud projects (`DEV`, `PROD`, `SSM Host`), links active billing account, and enables all required Google Cloud APIs (`bigquery`, `dataform`, `securesourcemanager`, `developerconnect`, `iam`, `cloudresourcemanager`).
