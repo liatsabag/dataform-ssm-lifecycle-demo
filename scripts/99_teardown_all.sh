@@ -87,11 +87,10 @@ for dev_p in "${DEV_PIDS[@]:-}"; do
 
   # 1.2 Delete Developer Connect Connection
   echo "  2. Deleting Developer Connect connection '${CONN_ID}' in ${dev_p}..."
+  curl -s -X DELETE \
+    -H "Authorization: Bearer $(gcloud auth print-access-token 2>/dev/null || true)" \
+    "https://developerconnect.googleapis.com/v1/projects/${dev_p}/locations/${LOCATION}/connections/${CONN_ID}" >/dev/null 2>&1 || true
   gcloud beta developer-connect connections delete "${CONN_ID}" \
-    --location="${LOCATION}" \
-    --project="${dev_p}" \
-    --quiet 2>/dev/null || \
-  gcloud developer-connect connections delete "${CONN_ID}" \
     --location="${LOCATION}" \
     --project="${dev_p}" \
     --quiet 2>/dev/null || true

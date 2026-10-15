@@ -327,25 +327,39 @@ gcloud projects add-iam-policy-binding "${DEV_PROJECT}" \
   --condition=None >/dev/null 2>&1 || true
 
 # Create or verify Developer Connect Connection
-CONN_EXISTS=$(gcloud beta developer-connect connections describe "${CONN_ID}" --location="${LOCATION}" --project="${DEV_PROJECT}" --format="value(name)" 2>/dev/null || \
-              gcloud developer-connect connections describe "${CONN_ID}" --location="${LOCATION}" --project="${DEV_PROJECT}" --format="value(name)" 2>/dev/null || echo "NOT_FOUND")
-if [ "${CONN_EXISTS}" = "NOT_FOUND" ]; then
+DEVCONN_BASE="https://developerconnect.googleapis.com/v1/projects/${DEV_PROJECT}/locations/${LOCATION}"
+CONN_PATH="${DEVCONN_BASE}/connections/${CONN_ID}"
+
+CONN_HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X GET \
+  -H "Authorization: Bearer ${TOKEN}" \
+  "${CONN_PATH}" 2>/dev/null || echo "404")
+
+if [ "${CONN_HTTP_CODE}" != "200" ]; then
   echo "Creating Developer Connect Connection '${CONN_ID}' (with automatic IAM propagation retries)..."
   MAX_ATTEMPTS=6
   ATTEMPT=1
   while [ "${ATTEMPT}" -le "${MAX_ATTEMPTS}" ]; do
-    if gcloud beta developer-connect connections create "${CONN_ID}" \
-      --location="${LOCATION}" \
-      --project="${DEV_PROJECT}" \
-      --secure-source-manager-instance-config="projects/${SSM_PROJECT}/locations/${LOCATION}/instances/${INSTANCE_ID}" 2>/dev/null || \
-       gcloud developer-connect connections create "${CONN_ID}" \
-      --location="${LOCATION}" \
-      --project="${DEV_PROJECT}" \
-      --secure-source-manager-instance-config="projects/${SSM_PROJECT}/locations/${LOCATION}/instances/${INSTANCE_ID}"; then
+    CONN_RESP=$(curl -s -X POST \
+      -H "Authorization: Bearer ${TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "secureSourceManagerInstanceConfig": {
+          "instance": "projects/'"${SSM_PROJECT}"'/locations/'"${LOCATION}"'/instances/'"${INSTANCE_ID}"'"
+        },
+        "gitProxyConfig": {
+          "enabled": true
+        }
+      }' \
+      "${DEVCONN_BASE}/connections?connectionId=${CONN_ID}")
+
+    # Check if creation succeeded or is running
+    sleep 3
+    CHECK_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X GET -H "Authorization: Bearer ${TOKEN}" "${CONN_PATH}" 2>/dev/null || echo "404")
+    if [ "${CHECK_CODE}" = "200" ]; then
       echo "✔ Developer Connect Connection '${CONN_ID}' created."
       break
     else
-      echo "⚠️ Connection creation failed on attempt ${ATTEMPT}/${MAX_ATTEMPTS}. Waiting 15s for SSM IAM propagation..."
+      echo "⚠️ Connection creation waiting for SSM IAM propagation (attempt ${ATTEMPT}/${MAX_ATTEMPTS})..."
       ATTEMPT=$((ATTEMPT + 1))
       if [ "${ATTEMPT}" -gt "${MAX_ATTEMPTS}" ]; then
         echo "✘ Failed to create Developer Connect connection after ${MAX_ATTEMPTS} attempts."
@@ -354,40 +368,45 @@ if [ "${CONN_EXISTS}" = "NOT_FOUND" ]; then
       sleep 15
     fi
   done
+else
+  echo "✔ Developer Connect Connection '${CONN_ID}' already exists."
 fi
 
-# Enable Git Proxy on Developer Connect Connection
-echo "Enabling Git Proxy on Connection '${CONN_ID}'..."
+# Ensure Git Proxy is enabled on Connection
 curl -s -X PATCH \
   -H "Authorization: Bearer ${TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"gitProxyConfig": {"enabled": true}}' \
-  "https://developerconnect.googleapis.com/v1/projects/${DEV_PROJECT}/locations/${LOCATION}/connections/${CONN_ID}?updateMask=gitProxyConfig" >/dev/null
+  "${CONN_PATH}?updateMask=gitProxyConfig" >/dev/null 2>&1 || true
 
 # Create Git Repository Link
-LINK_EXISTS=$(gcloud beta developer-connect connections git-repository-links describe "${REPO_ID}" --connection="${CONN_ID}" --location="${LOCATION}" --project="${DEV_PROJECT}" --format="value(name)" 2>/dev/null || \
-              gcloud developer-connect connections git-repository-links describe "${REPO_ID}" --connection="${CONN_ID}" --location="${LOCATION}" --project="${DEV_PROJECT}" --format="value(name)" 2>/dev/null || echo "NOT_FOUND")
+LINK_PATH="${CONN_PATH}/gitRepositoryLinks/${REPO_ID}"
+LINK_HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X GET \
+  -H "Authorization: Bearer ${TOKEN}" \
+  "${LINK_PATH}" 2>/dev/null || echo "404")
+
 CLONE_URI="https://${INSTANCE_ID}-${SSM_PROJECT_NUM}-git.${LOCATION}.sourcemanager.dev/${SSM_PROJECT}/${REPO_ID}.git"
 
-if [ "${LINK_EXISTS}" = "NOT_FOUND" ]; then
+if [ "${LINK_HTTP_CODE}" != "200" ]; then
   echo "Creating Developer Connect Git Repository Link '${REPO_ID}' (with retry for IAM propagation)..."
   MAX_LINK_ATTEMPTS=5
   LINK_ATTEMPT=1
   while [ "${LINK_ATTEMPT}" -le "${MAX_LINK_ATTEMPTS}" ]; do
-    if gcloud beta developer-connect connections git-repository-links create "${REPO_ID}" \
-      --connection="${CONN_ID}" \
-      --location="${LOCATION}" \
-      --project="${DEV_PROJECT}" \
-      --clone-uri="${CLONE_URI}" 2>/dev/null || \
-       gcloud developer-connect connections git-repository-links create "${REPO_ID}" \
-      --connection="${CONN_ID}" \
-      --location="${LOCATION}" \
-      --project="${DEV_PROJECT}" \
-      --clone-uri="${CLONE_URI}"; then
+    curl -s -X POST \
+      -H "Authorization: Bearer ${TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "cloneUri": "'"${CLONE_URI}"'"
+      }' \
+      "${CONN_PATH}/gitRepositoryLinks?gitRepositoryLinkId=${REPO_ID}" >/dev/null 2>&1 || true
+
+    sleep 3
+    CHECK_LINK=$(curl -s -o /dev/null -w "%{http_code}" -X GET -H "Authorization: Bearer ${TOKEN}" "${LINK_PATH}" 2>/dev/null || echo "404")
+    if [ "${CHECK_LINK}" = "200" ]; then
       echo "✔ Git Repository Link '${REPO_ID}' created."
       break
     else
-      echo "⚠️ Git link creation failed on attempt ${LINK_ATTEMPT}/${MAX_LINK_ATTEMPTS}. Waiting 10s..."
+      echo "⚠️ Git link creation waiting (attempt ${LINK_ATTEMPT}/${MAX_LINK_ATTEMPTS})..."
       LINK_ATTEMPT=$((LINK_ATTEMPT + 1))
       if [ "${LINK_ATTEMPT}" -gt "${MAX_LINK_ATTEMPTS}" ]; then
         echo "✘ Failed to create Git repository link after ${MAX_LINK_ATTEMPTS} attempts."
@@ -396,6 +415,8 @@ if [ "${LINK_EXISTS}" = "NOT_FOUND" ]; then
       sleep 10
     fi
   done
+else
+  echo "✔ Git Repository Link '${REPO_ID}' already exists."
 fi
 
 echo ""
