@@ -20,21 +20,25 @@ echo "==================================================================="
 if [ -z "${BILLING_ID:-}" ]; then
   echo ">>> Auto-detecting active Google Cloud Billing Account from Organization..."
   
-  # Method 1: Filter open accounts by ACCOUNT_ID
-  BILLING_ID=$(gcloud billing accounts list --filter="open=true" --format="value(ACCOUNT_ID)" --limit=1 2>/dev/null || true)
+  # Method 1: gcloud beta billing accounts list (Compatible across all release tracks)
+  BILLING_ID=$(gcloud beta billing accounts list --filter="open=true" --format="value(ACCOUNT_ID)" --limit=1 2>/dev/null || \
+               gcloud billing accounts list --filter="open=true" --format="value(ACCOUNT_ID)" --limit=1 2>/dev/null || true)
   
   # Method 2: Strip prefix from name resource path
   if [ -z "${BILLING_ID}" ]; then
-    BILLING_ID=$(gcloud billing accounts list --format="value(name)" 2>/dev/null | head -n 1 | sed 's|billingAccounts/||' || true)
+    BILLING_ID=$(gcloud beta billing accounts list --format="value(name)" 2>/dev/null | head -n 1 | sed 's|billingAccounts/||' || \
+                 gcloud billing accounts list --format="value(name)" 2>/dev/null | head -n 1 | sed 's|billingAccounts/||' || true)
   fi
 
   # Method 3: Unfiltered ACCOUNT_ID
   if [ -z "${BILLING_ID}" ]; then
-    BILLING_ID=$(gcloud billing accounts list --format="value(ACCOUNT_ID)" 2>/dev/null | head -n 1 || true)
+    BILLING_ID=$(gcloud beta billing accounts list --format="value(ACCOUNT_ID)" 2>/dev/null | head -n 1 || \
+                 gcloud billing accounts list --format="value(ACCOUNT_ID)" 2>/dev/null | head -n 1 || true)
   fi
   
   if [ -n "${BILLING_ID}" ]; then
-    ACCOUNT_NAME=$(gcloud billing accounts describe "${BILLING_ID}" --format="value(displayName)" 2>/dev/null || echo "Primary Billing Account")
+    ACCOUNT_NAME=$(gcloud beta billing accounts describe "${BILLING_ID}" --format="value(displayName)" 2>/dev/null || \
+                  gcloud billing accounts describe "${BILLING_ID}" --format="value(displayName)" 2>/dev/null || echo "Primary Billing Account")
     echo "✔ Auto-detected Organization Billing Account: ${ACCOUNT_NAME} (${BILLING_ID})"
     
     # Persist BILLING_ID to config.env
@@ -52,8 +56,8 @@ with open(f, 'w') as fp:
     fp.write(content)
 "
   else
-    echo "Diagnostic: Output of 'gcloud billing accounts list':"
-    gcloud billing accounts list 2>&1 || true
+    echo "Diagnostic: Output of 'gcloud beta billing accounts list':"
+    gcloud beta billing accounts list 2>&1 || true
     echo ""
     echo "❌ Error: Could not auto-detect an active Google Cloud Billing Account for your Organization."
     echo "A valid billing account is required to provision demo projects and BigQuery datasets."
@@ -157,9 +161,11 @@ with open(f, 'w') as fp:
     echo "Linking billing account ${BILLING_ID} to ${target_id}..."
     local billing_ok="false"
     for attempt in {1..20}; do
+      gcloud beta billing projects link "${target_id}" --billing-account="${BILLING_ID}" --quiet >/dev/null 2>&1 || \
       gcloud billing projects link "${target_id}" --billing-account="${BILLING_ID}" --quiet >/dev/null 2>&1 || true
       local is_enabled
-      is_enabled=$(gcloud billing projects describe "${target_id}" --format="value(billingEnabled)" 2>/dev/null || echo "False")
+      is_enabled=$(gcloud beta billing projects describe "${target_id}" --format="value(billingEnabled)" 2>/dev/null || \
+                   gcloud billing projects describe "${target_id}" --format="value(billingEnabled)" 2>/dev/null || echo "False")
       if [ "${is_enabled}" = "True" ] || [ "${is_enabled}" = "true" ]; then
         billing_ok="true"
         echo "✔ Verified: Billing is ENABLED on ${target_id}."
