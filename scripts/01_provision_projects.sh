@@ -65,22 +65,22 @@ provision_project() {
     
     echo "Creating project ${target_id} with name '${name}'..."
     if [ -n "${FOLDER_ID:-}" ]; then
-      gcloud projects create "${target_id}" --name="${name}" --folder="${FOLDER_ID}" 2>/dev/null || \
-      gcloud projects create "${target_id}" --name="${name}" 2>/dev/null || true
+      gcloud projects create "${target_id}" --name="${name}" --folder="${FOLDER_ID}" || \
+      gcloud projects create "${target_id}" --name="${name}" || true
     else
-      gcloud projects create "${target_id}" --name="${name}" 2>/dev/null || true
+      gcloud projects create "${target_id}" --name="${name}" || true
     fi
 
     # Wait and verify project is ACTIVE in GCP
     local verified="false"
-    for _ in {1..10}; do
+    for _ in {1..20}; do
       local state
       state=$(gcloud projects describe "${target_id}" --format="value(lifecycleState)" 2>/dev/null || echo "NOT_FOUND")
       if [ "${state}" = "ACTIVE" ]; then
         verified="true"
         break
       fi
-      sleep 2
+      sleep 3
     done
 
     if [ "${verified}" != "true" ]; then
