@@ -327,13 +327,18 @@ gcloud projects add-iam-policy-binding "${DEV_PROJECT}" \
   --condition=None >/dev/null 2>&1 || true
 
 # Create or verify Developer Connect Connection
-CONN_EXISTS=$(gcloud developer-connect connections describe "${CONN_ID}" --location="${LOCATION}" --project="${DEV_PROJECT}" --format="value(name)" 2>/dev/null || echo "NOT_FOUND")
+CONN_EXISTS=$(gcloud beta developer-connect connections describe "${CONN_ID}" --location="${LOCATION}" --project="${DEV_PROJECT}" --format="value(name)" 2>/dev/null || \
+              gcloud developer-connect connections describe "${CONN_ID}" --location="${LOCATION}" --project="${DEV_PROJECT}" --format="value(name)" 2>/dev/null || echo "NOT_FOUND")
 if [ "${CONN_EXISTS}" = "NOT_FOUND" ]; then
   echo "Creating Developer Connect Connection '${CONN_ID}' (with automatic IAM propagation retries)..."
   MAX_ATTEMPTS=6
   ATTEMPT=1
   while [ "${ATTEMPT}" -le "${MAX_ATTEMPTS}" ]; do
-    if gcloud developer-connect connections create "${CONN_ID}" \
+    if gcloud beta developer-connect connections create "${CONN_ID}" \
+      --location="${LOCATION}" \
+      --project="${DEV_PROJECT}" \
+      --secure-source-manager-instance-config="projects/${SSM_PROJECT}/locations/${LOCATION}/instances/${INSTANCE_ID}" 2>/dev/null || \
+       gcloud developer-connect connections create "${CONN_ID}" \
       --location="${LOCATION}" \
       --project="${DEV_PROJECT}" \
       --secure-source-manager-instance-config="projects/${SSM_PROJECT}/locations/${LOCATION}/instances/${INSTANCE_ID}"; then
@@ -360,7 +365,8 @@ curl -s -X PATCH \
   "https://developerconnect.googleapis.com/v1/projects/${DEV_PROJECT}/locations/${LOCATION}/connections/${CONN_ID}?updateMask=gitProxyConfig" >/dev/null
 
 # Create Git Repository Link
-LINK_EXISTS=$(gcloud developer-connect connections git-repository-links describe "${REPO_ID}" --connection="${CONN_ID}" --location="${LOCATION}" --project="${DEV_PROJECT}" --format="value(name)" 2>/dev/null || echo "NOT_FOUND")
+LINK_EXISTS=$(gcloud beta developer-connect connections git-repository-links describe "${REPO_ID}" --connection="${CONN_ID}" --location="${LOCATION}" --project="${DEV_PROJECT}" --format="value(name)" 2>/dev/null || \
+              gcloud developer-connect connections git-repository-links describe "${REPO_ID}" --connection="${CONN_ID}" --location="${LOCATION}" --project="${DEV_PROJECT}" --format="value(name)" 2>/dev/null || echo "NOT_FOUND")
 CLONE_URI="https://${INSTANCE_ID}-${SSM_PROJECT_NUM}-git.${LOCATION}.sourcemanager.dev/${SSM_PROJECT}/${REPO_ID}.git"
 
 if [ "${LINK_EXISTS}" = "NOT_FOUND" ]; then
@@ -368,7 +374,12 @@ if [ "${LINK_EXISTS}" = "NOT_FOUND" ]; then
   MAX_LINK_ATTEMPTS=5
   LINK_ATTEMPT=1
   while [ "${LINK_ATTEMPT}" -le "${MAX_LINK_ATTEMPTS}" ]; do
-    if gcloud developer-connect connections git-repository-links create "${REPO_ID}" \
+    if gcloud beta developer-connect connections git-repository-links create "${REPO_ID}" \
+      --connection="${CONN_ID}" \
+      --location="${LOCATION}" \
+      --project="${DEV_PROJECT}" \
+      --clone-uri="${CLONE_URI}" 2>/dev/null || \
+       gcloud developer-connect connections git-repository-links create "${REPO_ID}" \
       --connection="${CONN_ID}" \
       --location="${LOCATION}" \
       --project="${DEV_PROJECT}" \

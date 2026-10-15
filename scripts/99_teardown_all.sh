@@ -87,6 +87,10 @@ for dev_p in "${DEV_PIDS[@]:-}"; do
 
   # 1.2 Delete Developer Connect Connection
   echo "  2. Deleting Developer Connect connection '${CONN_ID}' in ${dev_p}..."
+  gcloud beta developer-connect connections delete "${CONN_ID}" \
+    --location="${LOCATION}" \
+    --project="${dev_p}" \
+    --quiet 2>/dev/null || \
   gcloud developer-connect connections delete "${CONN_ID}" \
     --location="${LOCATION}" \
     --project="${dev_p}" \
