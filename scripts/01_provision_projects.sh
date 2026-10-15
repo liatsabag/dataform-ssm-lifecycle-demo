@@ -20,7 +20,18 @@ echo "==================================================================="
 if [ -z "${BILLING_ID:-}" ]; then
   echo ">>> Auto-detecting active Google Cloud Billing Account from Organization..."
   
+  # Method 1: Filter open accounts by ACCOUNT_ID
   BILLING_ID=$(gcloud billing accounts list --filter="open=true" --format="value(ACCOUNT_ID)" --limit=1 2>/dev/null || true)
+  
+  # Method 2: Strip prefix from name resource path
+  if [ -z "${BILLING_ID}" ]; then
+    BILLING_ID=$(gcloud billing accounts list --format="value(name)" 2>/dev/null | head -n 1 | sed 's|billingAccounts/||' || true)
+  fi
+
+  # Method 3: Unfiltered ACCOUNT_ID
+  if [ -z "${BILLING_ID}" ]; then
+    BILLING_ID=$(gcloud billing accounts list --format="value(ACCOUNT_ID)" 2>/dev/null | head -n 1 || true)
+  fi
   
   if [ -n "${BILLING_ID}" ]; then
     ACCOUNT_NAME=$(gcloud billing accounts describe "${BILLING_ID}" --format="value(displayName)" 2>/dev/null || echo "Primary Billing Account")
@@ -41,8 +52,12 @@ with open(f, 'w') as fp:
     fp.write(content)
 "
   else
+    echo "Diagnostic: Output of 'gcloud billing accounts list':"
+    gcloud billing accounts list 2>&1 || true
+    echo ""
     echo "❌ Error: Could not auto-detect an active Google Cloud Billing Account for your Organization."
     echo "A valid billing account is required to provision demo projects and BigQuery datasets."
+    echo "If you have a billing account ID, you can also define it in config.env: export BILLING_ID=\"<YOUR_ID>\""
     exit 1
   fi
 fi
