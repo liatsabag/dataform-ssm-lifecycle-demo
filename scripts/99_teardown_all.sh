@@ -61,6 +61,7 @@ if [ -n "${DEV_PROJECT:-}" ]; then
 
   # 4. Delete Service Account in DEV
   echo "4. Deleting executor service account in ${DEV_PROJECT}..."
+  EXECUTOR_SA="${EXECUTOR_SA:-dataform-executor@${DEV_PROJECT}.iam.gserviceaccount.com}"
   gcloud iam service-accounts delete "${EXECUTOR_SA}" \
     --project="${DEV_PROJECT}" \
     --quiet 2>/dev/null || true
