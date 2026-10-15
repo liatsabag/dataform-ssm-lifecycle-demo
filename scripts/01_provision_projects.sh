@@ -72,13 +72,19 @@ provision_project() {
     fi
     echo "✔ Project ${target_id} created successfully."
     
-    # Update config.env dynamically with new Project ID
+    # Update or append project ID dynamically to config.env
     python3 -c "
 import re
 f = '${CONFIG_FILE}'
 with open(f, 'r') as fp:
     content = fp.read()
-content = re.sub(r'^export ${id_var}=.*', 'export ${id_var}=\"${target_id}\"', content, flags=re.MULTILINE)
+pattern = r'^export ${id_var}=.*'
+if re.search(pattern, content, flags=re.MULTILINE):
+    content = re.sub(pattern, 'export ${id_var}=\"${target_id}\"', content, flags=re.MULTILINE)
+else:
+    if '# Auto-resolved Runtime Configuration' not in content:
+        content += '\n# Auto-resolved Runtime Configuration (Generated at runtime)\n'
+    content += 'export ${id_var}=\"${target_id}\"\n'
 with open(f, 'w') as fp:
     fp.write(content)
 "
@@ -101,6 +107,35 @@ echo "==================================================================="
 provision_project "DEV_PROJECT" "DEV_PROJECT_NAME"
 provision_project "PROD_PROJECT" "PROD_PROJECT_NAME"
 provision_project "SSM_PROJECT" "SSM_PROJECT_NAME"
+
+# Synchronize derived runtime variables to config.env
+python3 -c "
+import re
+f = '${CONFIG_FILE}'
+with open(f, 'r') as fp:
+    content = fp.read()
+
+runtime_vars = [
+    ('DEV_PROJECT', '${DEV_PROJECT}'),
+    ('PROD_PROJECT', '${PROD_PROJECT}'),
+    ('SSM_PROJECT', '${SSM_PROJECT}'),
+    ('EXECUTOR_SA', 'dataform-executor@${DEV_PROJECT}.iam.gserviceaccount.com'),
+    ('SOURCE_PROJECT', '${PROD_PROJECT}'),
+    ('TARGET_PROJECT', '${DEV_PROJECT}')
+]
+
+for var_name, var_val in runtime_vars:
+    pattern = r'^export ' + var_name + r'=.*'
+    if re.search(pattern, content, flags=re.MULTILINE):
+        content = re.sub(pattern, f'export {var_name}=\"{var_val}\"', content, flags=re.MULTILINE)
+    else:
+        if '# Auto-resolved Runtime Configuration' not in content:
+            content += '\n# Auto-resolved Runtime Configuration (Generated at runtime)\n'
+        content += f'export {var_name}=\"{var_val}\"\n'
+
+with open(f, 'w') as fp:
+    fp.write(content)
+"
 
 # Reload config.env to ensure resolved project IDs are active in current subshell
 # shellcheck source=/dev/null

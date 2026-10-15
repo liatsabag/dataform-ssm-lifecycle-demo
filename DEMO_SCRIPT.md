@@ -4,6 +4,20 @@ This document is the official presenter guide and demo script for demonstrating 
 
 ---
 
+## 📑 Agenda & Presentation Flow
+
+- [🏛️ Architecture & Governance Overview](#%EF%B8%8F-architecture--governance-overview)
+- [🧹 Phase 0: Pre-Demo Baseline Reset](#-phase-0-pre-demo-baseline-reset)
+- [👩‍💻 Step 1: Feature Development & Sandbox Isolation](#-step-1-feature-development--sandbox-isolation)
+- [⚙️ Step 2: DEV Integration Release & Automated Execution](#%EF%B8%8F-step-2-dev-integration-release--automated-execution)
+- [🛡️ Step 3: GitOps Governance & Peer Review (SSM)](#%EF%B8%8F-step-3-gitops-governance--peer-review-ssm)
+- [🚀 Step 4: Production Release Compilation & Execution](#-step-4-production-release-compilation--execution)
+- [📋 Step 5: Enterprise Audit & Security Verification](#-step-5-enterprise-audit--security-verification)
+- [📊 Summary Scorecard](#-summary-scorecard)
+- [👥 Appendix: Enterprise Roles & Governance Matrix](#-enterprise-roles--governance-matrix-appendix)
+
+---
+
 ## 🏛️ Architecture & Governance Overview
 
 ```mermaid
@@ -54,14 +68,11 @@ flowchart LR
 ```
 
 ### Environment Topology
-| Component | Project ID | Location / Resource | Governance Purpose |
-| :--- | :--- | :--- | :--- |
-| **Git Repository** | `<ssm_project_id>` | SSM `dataform-pipeline` | Single source of truth with protected branches |
-| **Developer Sandbox** | `<dev_project_id>` | `analytics_curated__<developer_workspace>` | Private dataset for developer isolated testing |
-| **DEV Integration Target**| `<dev_project_id>` | `analytics_curated` | Automated integration environment |
-| **PROD Raw Source** | `<prod_project_id>` | `raw_vault.raw_transactions` | Immutable, read-only enterprise data vault |
-| **PROD Target** | `<prod_project_id>` | `analytics_curated` | High-governance production tables |
-| **Execution Identity** | `<dev_project_id>` | `dataform-executor@...` | Least-privilege pipeline Service Account |
+* **SSM Project (`<ssm_project_id>`)**: Hosts the central `dataform-pipeline` Git repository with branch protections on `main`.
+* **DEV Project (`<dev_project_id>`)**: Contains developer workspaces (`workspaces/<developer_workspace>`), private sandboxes (`analytics_curated__<developer_workspace>`), and DEV release execution.
+* **PROD Project (`<prod_project_id>`)**: Holds immutable source tables (`raw_vault.raw_transactions`) and target production datasets (`analytics_curated`).
+
+> 💡 *For the complete permissions and actor capabilities breakdown, see the [Enterprise Roles & Governance Matrix](#-enterprise-roles--governance-matrix-appendix) at the bottom.*
 
 ---
 
@@ -424,20 +435,20 @@ Provide mathematical and cryptographic proof of feature delivery, zero human acc
 ## 👥 Enterprise Roles & Governance Matrix (Appendix)
 
 | Capability / Action | Developer (`<developer_email>`) | Reviewer / Admin | Pipeline Service Account |
-| :--- | :---: | :---: | :---: |
-| **Develop in workspace (`workspaces/<developer_workspace>`)** | ✅ **Allowed** | ❌ User-Isolated | ❌ N/A |
-| **Execute in Sandbox (`analytics_curated__<developer_workspace>`)** | ✅ **Allowed** | ✅ Allowed | ❌ N/A |
-| **Read raw data from PROD vault (`raw_vault`)** | ✅ **Allowed** (Read-Only) | ✅ Allowed (Read-Only) | ✅ **Allowed** (Read-Only) |
-| **Push code directly to `development` branch** | ✅ **Allowed** | ✅ Allowed | ❌ N/A |
-| **Push code directly to `main` branch** | 🛑 **Blocked** (Branch Rule) | 🛑 **Blocked** (Branch Rule) | ❌ N/A |
-| **Open Pull Request (`development` $\rightarrow$ `main`)** | ✅ **Allowed** | ✅ Allowed | ❌ N/A |
-| **Approve & Squash-Merge PR into `main`** | 🛑 **Blocked** (Needs Reviewer) | ✅ **Allowed** | ❌ N/A |
-| **Directly write to PROD (`<prod_project_id>.analytics_curated`)** | 🛑 **No Permission** | 🛑 **No Manual Writes** | ✅ **Allowed** (Automated) |
-| **Directly write to shared DEV target** | 🛑 **No Permission** *(Sandbox only)*| 🛑 **Managed by Release** | ✅ **Allowed** (Automated) |
-| **Trigger DEV / PROD Workflow Configurations** | 🛑 **No Permission** | ✅ **Allowed** | ✅ **Execution Identity** |
-| **Audit BigQuery Jobs (`INFORMATION_SCHEMA`)** | ❌ Limited to own jobs | ✅ Full project audit | ❌ Logged Identity |
+| :--- | :--- | :--- | :--- |
+| **Workspace Development** (`workspaces/<developer_workspace>`) | Allowed | Denied *(Isolated per user)* | N/A |
+| **Sandbox Execution** (`analytics_curated__<developer_workspace>`) | Allowed | Allowed | N/A |
+| **Raw Data Access** (`raw_vault`) | Allowed *(Read-Only)* | Allowed *(Read-Only)* | Allowed *(Read-Only)* |
+| **Push to Development Branch** (`development`) | Allowed | Allowed | N/A |
+| **Push to Main Branch** (`main`) | Blocked *(Branch Protection)* | Blocked *(Branch Protection)* | N/A |
+| **Open Pull Request** (`development` &rarr; `main`) | Allowed | Allowed | N/A |
+| **Approve & Merge Pull Request** | Blocked *(Peer Review Required)* | Allowed | N/A |
+| **Direct Write to Production** (`analytics_curated`) | Denied | Denied *(Service Account Only)* | Allowed *(Automated)* |
+| **Direct Write to Shared DEV** (`analytics_curated`) | Denied *(Sandbox Only)* | Denied *(Release Managed)* | Allowed *(Automated)* |
+| **Trigger Release Workflows** (`dev-release` / `prod-release`) | Denied | Allowed | Execution Identity |
+| **Audit BigQuery Jobs** (`INFORMATION_SCHEMA`) | Self Only | Full Project Audit | Logged Principal |
 
 #### Key Governance Boundaries:
-* **Developer**: Can only modify private sandbox tables and push to `development`. Cannot write to Production or merge own PRs.
-* **Reviewer / Admin**: Approves PRs and manages release configs. Cannot push unreviewed code directly to `main`.
-* **Pipeline Service Account (`dataform-executor`)**: The **only** identity that writes to `<prod_project_id>.analytics_curated` and `<dev_project_id>.analytics_curated` during automated release workflows.
+* **Developer Persona**: Confined to private sandbox datasets and feature branches. Cannot write to production or self-approve PRs.
+* **Reviewer / Admin**: Reviews code diffs, enforces quality gates, and triggers release pipelines. Cannot bypass peer reviews.
+* **Pipeline Service Account (`dataform-executor`)**: The exclusive identity authorized to write to shared DEV and PROD datasets during automated workflow executions.
