@@ -126,43 +126,17 @@ gcloud beta source-manager instances add-iam-policy-binding "${INSTANCE_ID}" \
 # Step 5: Provision or Validate Git Repository with default-branch=development
 echo ""
 echo "--- Step 5: Provisioning / Validating Repository (${REPO_ID}) ---"
-API_BASE="https://securesourcemanager.googleapis.com/v1"
-REPO_PATH="projects/${SSM_PROJECT}/locations/${LOCATION}/repositories/${REPO_ID}"
+REPO_EXISTS=$(gcloud beta source-manager repos describe "${REPO_ID}" --region="${LOCATION}" --project="${SSM_PROJECT}" --format="value(name)" 2>/dev/null || echo "NOT_FOUND")
 
-REPO_HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X GET \
-  -H "Authorization: Bearer ${TOKEN}" \
-  "${API_BASE}/${REPO_PATH}" 2>/dev/null || echo "404")
-
-if [ "${REPO_HTTP_CODE}" != "200" ]; then
+if [ "${REPO_EXISTS}" = "NOT_FOUND" ]; then
   echo "Creating repository '${REPO_ID}' with default branch '${DEFAULT_BRANCH}' in ${SSM_PROJECT}..."
-  curl -s -X POST \
-    -H "Authorization: Bearer ${TOKEN}" \
-    -H "Content-Type: application/json" \
-    -d '{
-      "description": "Enterprise Dataform ELT pipeline repository for secure analytics",
-      "instance": "projects/'"${SSM_PROJECT}"'/locations/'"${LOCATION}"'/instances/'"${INSTANCE_ID}"'",
-      "initialConfig": {
-        "defaultBranch": "'"${DEFAULT_BRANCH}"'",
-        "readme": "default"
-      }
-    }' \
-    "${API_BASE}/projects/${SSM_PROJECT}/locations/${LOCATION}/repositories?repositoryId=${REPO_ID}" >/dev/null 2>&1 || \
   gcloud beta source-manager repos create "${REPO_ID}" \
     --instance="${INSTANCE_ID}" \
     --region="${LOCATION}" \
     --project="${SSM_PROJECT}" \
     --default-branch="${DEFAULT_BRANCH}" \
     --description="Enterprise Dataform ELT pipeline repository for secure analytics" \
-    --readme=default 2>/dev/null || true
-
-  # Wait for repository creation
-  for _ in {1..20}; do
-    CHECK=$(curl -s -o /dev/null -w "%{http_code}" -X GET -H "Authorization: Bearer ${TOKEN}" "${API_BASE}/${REPO_PATH}" 2>/dev/null || echo "404")
-    if [ "${CHECK}" = "200" ]; then
-      break
-    fi
-    sleep 2
-  done
+    --readme=default
   echo "✔ Repository '${REPO_ID}' created successfully."
 else
   echo "✔ Repository '${REPO_ID}' already exists in ${SSM_PROJECT}."
@@ -187,6 +161,8 @@ cat << 'EOF' > "${TEMP_DATA_DIR}/.gitignore"
 node_modules/
 EOF
 
+API_BASE="https://securesourcemanager.googleapis.com/v1"
+REPO_PATH="projects/${SSM_PROJECT}/locations/${LOCATION}/repositories/${REPO_ID}"
 RULE_ID="main-protection"
 
 # Temporarily delete branch rule if exists so main can be seeded directly
@@ -258,53 +234,29 @@ fi
 # Step 8: Assign Repository Roles in SSM
 echo ""
 echo "--- Step 8: Assigning SSM Repository Roles ---"
-add_repo_iam() {
-  local member="$1"
-  local role="$2"
-  
-  # Try gcloud CLI
-  gcloud beta source-manager repos add-iam-policy-binding "${REPO_ID}" \
-    --region="${LOCATION}" \
-    --project="${SSM_PROJECT}" \
-    --member="${member}" \
-    --role="${role}" >/dev/null 2>&1 || true
-    
-  # Also set via REST API
-  local curr_policy
-  curr_policy=$(curl -s -X GET -H "Authorization: Bearer ${TOKEN}" "${API_BASE}/${REPO_PATH}:getIamPolicy" 2>/dev/null || echo "{}")
-  local updated_payload
-  updated_payload=$(python3 -c "
-import json
-try:
-    p = json.loads('''${curr_policy}''')
-    bindings = p.get('bindings', [])
-    found = False
-    for b in bindings:
-        if b.get('role') == '${role}':
-            if '${member}' not in b.get('members', []):
-                b.setdefault('members', []).append('${member}')
-            found = True
-            break
-    if not found:
-        bindings.append({'role': '${role}', 'members': ['${member}']})
-    p['bindings'] = bindings
-    print(json.dumps({'policy': p}))
-except Exception:
-    print('{}')
-" 2>/dev/null || echo "{}")
-  if [ -n "${updated_payload}" ] && [ "${updated_payload}" != "{}" ]; then
-    curl -s -X POST \
-      -H "Authorization: Bearer ${TOKEN}" \
-      -H "Content-Type: application/json" \
-      -d "${updated_payload}" \
-      "${API_BASE}/${REPO_PATH}:setIamPolicy" >/dev/null 2>&1 || true
-  fi
-}
+gcloud beta source-manager repos add-iam-policy-binding "${REPO_ID}" \
+  --region="${LOCATION}" \
+  --project="${SSM_PROJECT}" \
+  --member="user:${DEVELOPER}" \
+  --role="roles/securesourcemanager.repoAdmin" >/dev/null 2>&1 || true
 
-add_repo_iam "user:${DEVELOPER}" "roles/securesourcemanager.repoAdmin"
-add_repo_iam "serviceAccount:${DEV_DEVCONNECT_SA}" "roles/securesourcemanager.developerConnectLinker"
-add_repo_iam "serviceAccount:${DEV_DEVCONNECT_SA}" "roles/securesourcemanager.repoWriter"
-add_repo_iam "serviceAccount:${DEV_DATAFORM_SA}" "roles/securesourcemanager.repoWriter"
+gcloud beta source-manager repos add-iam-policy-binding "${REPO_ID}" \
+  --region="${LOCATION}" \
+  --project="${SSM_PROJECT}" \
+  --member="serviceAccount:${DEV_DEVCONNECT_SA}" \
+  --role="roles/securesourcemanager.developerConnectLinker" >/dev/null 2>&1 || true
+
+gcloud beta source-manager repos add-iam-policy-binding "${REPO_ID}" \
+  --region="${LOCATION}" \
+  --project="${SSM_PROJECT}" \
+  --member="serviceAccount:${DEV_DEVCONNECT_SA}" \
+  --role="roles/securesourcemanager.repoWriter" >/dev/null 2>&1 || true
+
+gcloud beta source-manager repos add-iam-policy-binding "${REPO_ID}" \
+  --region="${LOCATION}" \
+  --project="${SSM_PROJECT}" \
+  --member="serviceAccount:${DEV_DATAFORM_SA}" \
+  --role="roles/securesourcemanager.repoWriter" >/dev/null 2>&1 || true
 echo "✔ SSM Repository roles granted successfully."
 
 # Step 9: Configure Developer Connect & Link to Dataform
@@ -327,35 +279,16 @@ gcloud projects add-iam-policy-binding "${DEV_PROJECT}" \
   --condition=None >/dev/null 2>&1 || true
 
 # Create or verify Developer Connect Connection
-DEVCONN_BASE="https://developerconnect.googleapis.com/v1/projects/${DEV_PROJECT}/locations/${LOCATION}"
-CONN_PATH="${DEVCONN_BASE}/connections/${CONN_ID}"
-
-CONN_HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X GET \
-  -H "Authorization: Bearer ${TOKEN}" \
-  "${CONN_PATH}" 2>/dev/null || echo "404")
-
-if [ "${CONN_HTTP_CODE}" != "200" ]; then
+CONN_EXISTS=$(gcloud beta developer-connect connections describe "${CONN_ID}" --location="${LOCATION}" --project="${DEV_PROJECT}" --format="value(name)" 2>/dev/null || echo "NOT_FOUND")
+if [ "${CONN_EXISTS}" = "NOT_FOUND" ]; then
   echo "Creating Developer Connect Connection '${CONN_ID}' (with automatic IAM propagation retries)..."
   MAX_ATTEMPTS=6
   ATTEMPT=1
   while [ "${ATTEMPT}" -le "${MAX_ATTEMPTS}" ]; do
-    CONN_RESP=$(curl -s -X POST \
-      -H "Authorization: Bearer ${TOKEN}" \
-      -H "Content-Type: application/json" \
-      -d '{
-        "secureSourceManagerInstanceConfig": {
-          "instance": "projects/'"${SSM_PROJECT}"'/locations/'"${LOCATION}"'/instances/'"${INSTANCE_ID}"'"
-        },
-        "gitProxyConfig": {
-          "enabled": true
-        }
-      }' \
-      "${DEVCONN_BASE}/connections?connectionId=${CONN_ID}")
-
-    # Check if creation succeeded or is running
-    sleep 3
-    CHECK_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X GET -H "Authorization: Bearer ${TOKEN}" "${CONN_PATH}" 2>/dev/null || echo "404")
-    if [ "${CHECK_CODE}" = "200" ]; then
+    if gcloud beta developer-connect connections create "${CONN_ID}" \
+      --location="${LOCATION}" \
+      --project="${DEV_PROJECT}" \
+      --secure-source-manager-instance-config="projects/${SSM_PROJECT}/locations/${LOCATION}/instances/${INSTANCE_ID}"; then
       echo "✔ Developer Connect Connection '${CONN_ID}' created."
       break
     else
@@ -372,37 +305,28 @@ else
   echo "✔ Developer Connect Connection '${CONN_ID}' already exists."
 fi
 
-# Ensure Git Proxy is enabled on Connection
+# Enable Git Proxy on Developer Connect Connection
+echo "Enabling Git Proxy on Connection '${CONN_ID}'..."
 curl -s -X PATCH \
   -H "Authorization: Bearer ${TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"gitProxyConfig": {"enabled": true}}' \
-  "${CONN_PATH}?updateMask=gitProxyConfig" >/dev/null 2>&1 || true
+  "https://developerconnect.googleapis.com/v1/projects/${DEV_PROJECT}/locations/${LOCATION}/connections/${CONN_ID}?updateMask=gitProxyConfig" >/dev/null 2>&1 || true
 
 # Create Git Repository Link
-LINK_PATH="${CONN_PATH}/gitRepositoryLinks/${REPO_ID}"
-LINK_HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X GET \
-  -H "Authorization: Bearer ${TOKEN}" \
-  "${LINK_PATH}" 2>/dev/null || echo "404")
-
+LINK_EXISTS=$(gcloud beta developer-connect connections git-repository-links describe "${REPO_ID}" --connection="${CONN_ID}" --location="${LOCATION}" --project="${DEV_PROJECT}" --format="value(name)" 2>/dev/null || echo "NOT_FOUND")
 CLONE_URI="https://${INSTANCE_ID}-${SSM_PROJECT_NUM}-git.${LOCATION}.sourcemanager.dev/${SSM_PROJECT}/${REPO_ID}.git"
 
-if [ "${LINK_HTTP_CODE}" != "200" ]; then
+if [ "${LINK_EXISTS}" = "NOT_FOUND" ]; then
   echo "Creating Developer Connect Git Repository Link '${REPO_ID}' (with retry for IAM propagation)..."
   MAX_LINK_ATTEMPTS=5
   LINK_ATTEMPT=1
   while [ "${LINK_ATTEMPT}" -le "${MAX_LINK_ATTEMPTS}" ]; do
-    curl -s -X POST \
-      -H "Authorization: Bearer ${TOKEN}" \
-      -H "Content-Type: application/json" \
-      -d '{
-        "cloneUri": "'"${CLONE_URI}"'"
-      }' \
-      "${CONN_PATH}/gitRepositoryLinks?gitRepositoryLinkId=${REPO_ID}" >/dev/null 2>&1 || true
-
-    sleep 3
-    CHECK_LINK=$(curl -s -o /dev/null -w "%{http_code}" -X GET -H "Authorization: Bearer ${TOKEN}" "${LINK_PATH}" 2>/dev/null || echo "404")
-    if [ "${CHECK_LINK}" = "200" ]; then
+    if gcloud beta developer-connect connections git-repository-links create "${REPO_ID}" \
+      --connection="${CONN_ID}" \
+      --location="${LOCATION}" \
+      --project="${DEV_PROJECT}" \
+      --clone-uri="${CLONE_URI}"; then
       echo "✔ Git Repository Link '${REPO_ID}' created."
       break
     else

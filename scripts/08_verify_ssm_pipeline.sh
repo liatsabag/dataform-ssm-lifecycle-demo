@@ -56,9 +56,10 @@ fi
 # Test 2: Repository and Branches
 echo ""
 echo ">>> [Test 2/6] Repository & Branch Validation in ${SSM_PROJECT} <<<"
-REPO_HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X GET \
-  -H "Authorization: Bearer ${TOKEN}" \
-  "https://securesourcemanager.googleapis.com/v1/projects/${SSM_PROJECT}/locations/${LOCATION}/repositories/${REPO_ID}" 2>/dev/null || echo "404")
+REPO_NAME=$(gcloud beta source-manager repos describe "${REPO_ID}" \
+  --region="${LOCATION}" \
+  --project="${SSM_PROJECT}" \
+  --format="value(name)" 2>/dev/null || echo "NOT_FOUND")
 
 SSM_GIT_URL="https://oauth2accesstoken:${TOKEN}@${INSTANCE_ID}-${SSM_PROJECT_NUM}-git.${LOCATION}.sourcemanager.dev/${SSM_PROJECT}/${REPO_ID}.git"
 REMOTE_BRANCHES=$(git ls-remote --heads "${SSM_GIT_URL}" 2>/dev/null || true)
@@ -66,7 +67,7 @@ REMOTE_BRANCHES=$(git ls-remote --heads "${SSM_GIT_URL}" 2>/dev/null || true)
 HAS_MAIN=$(echo "${REMOTE_BRANCHES}" | grep -c "refs/heads/main" || true)
 HAS_DEV=$(echo "${REMOTE_BRANCHES}" | grep -c "refs/heads/development" || true)
 
-if [ "${REPO_HTTP_CODE}" = "200" ] && [ "${HAS_MAIN}" -ge 1 ] && [ "${HAS_DEV}" -ge 1 ]; then
+if [ "${REPO_NAME}" != "NOT_FOUND" ] && [ "${HAS_MAIN}" -ge 1 ] && [ "${HAS_DEV}" -ge 1 ]; then
   echo "✔ PASS: Repository '${REPO_ID}' exists in '${SSM_PROJECT}' with both 'main' and 'development' branches."
   PASSED_TESTS=$((PASSED_TESTS + 1))
 else

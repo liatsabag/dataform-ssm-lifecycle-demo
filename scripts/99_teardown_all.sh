@@ -87,9 +87,6 @@ for dev_p in "${DEV_PIDS[@]:-}"; do
 
   # 1.2 Delete Developer Connect Connection
   echo "  2. Deleting Developer Connect connection '${CONN_ID}' in ${dev_p}..."
-  curl -s -X DELETE \
-    -H "Authorization: Bearer $(gcloud auth print-access-token 2>/dev/null || true)" \
-    "https://developerconnect.googleapis.com/v1/projects/${dev_p}/locations/${LOCATION}/connections/${CONN_ID}" >/dev/null 2>&1 || true
   gcloud beta developer-connect connections delete "${CONN_ID}" \
     --location="${LOCATION}" \
     --project="${dev_p}" \
@@ -144,9 +141,6 @@ for ssm_p in "${SSM_PIDS[@]:-}"; do
 
   # 3.1 Delete SSM Repository
   echo "  1. Deleting Secure Source Manager repository in ${ssm_p}..."
-  curl -s -X DELETE \
-    -H "Authorization: Bearer $(gcloud auth print-access-token 2>/dev/null || true)" \
-    "https://securesourcemanager.googleapis.com/v1/projects/${ssm_p}/locations/${LOCATION}/repositories/${REPO_ID}" >/dev/null 2>&1 || true
   gcloud beta source-manager repos delete "${REPO_ID}" \
     --region="${LOCATION}" \
     --project="${ssm_p}" \
