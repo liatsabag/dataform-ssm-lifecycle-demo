@@ -154,22 +154,37 @@ Show how a developer writes SQLX transformation logic and safely tests it inside
 
 ---
 
-### 📸 Screenshot Guide (What to Capture)
+### 🖥️ Presenter Screen View (What to Show)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ 📷 SCREENSHOT 1: DEVELOPER SANDBOX ISOLATION                                │
+│ 🖥️ LIVE VIEW 1: DEVELOPER SANDBOX ISOLATION                                │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ • Window: BigQuery Studio / Console (<dev_project_id>)                      │
-│ • Key Elements to Highlight:                                                │
-│   1. Left sidebar showing dataset `analytics_curated__<developer_workspace>`│
-│   2. Query Results grid showing column `customer_tier` populated with      │
-│      PLATINUM / GOLD / STANDARD values                                      │
-│   3. Query tab showing `<prod_project_id>.analytics_curated` without column │
+│ • Window / Tab: BigQuery Studio (<dev_project_id>)                          │
+│ • What to Point to on Screen:                                               │
+│   1. Left Explorer: Expand `<dev_project_id>` -> `analytics_curated__<developer_workspace>`│
+│   2. Query Results Grid: Point to `customer_tier` column containing values  │
+│      PLATINUM / GOLD / STANDARD.                                            │
+│   3. Side-by-side Tab: Query `<prod_project_id>.analytics_curated` showing  │
+│      that the production table does NOT have `customer_tier` yet.           │
 │                                                                             │
-│ • Caption: "Figure 1: New metric validated inside developer sandbox dataset │
-│   (analytics_curated__<developer_workspace>) with zero impact to PROD."     │
+│ • Presenter Takeaway: "Notice how the developer is fully unblocked to test  │
+│   their logic without risk of corrupting production or shared DEV data."    │
 └─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 🔍 Visual Screen Snapshot:
+```text
+┌── BigQuery Studio (<dev_project_id>) ──────────────────────────────────────────┐
+│ Explorer: <dev_project_id> > analytics_curated__<developer_workspace>         │
+│ Query: SELECT transaction_id, customer_id, transaction_amount, customer_tier   │
+├────────────────┬─────────────┬────────────────────┬────────────────────────────┤
+│ transaction_id │ customer_id │ transaction_amount │ customer_tier              │
+├────────────────┼─────────────┼────────────────────┼────────────────────────────┤
+│ TXN_000001     │ CUST_1042   │ 1250.00            │ PLATINUM                   │
+│ TXN_000002     │ CUST_0819   │ 720.50             │ GOLD                       │
+│ TXN_000003     │ CUST_2301   │ 145.00             │ STANDARD                   │
+└────────────────┴─────────────┴────────────────────┴────────────────────────────┘
 ```
 
 ---
@@ -210,20 +225,32 @@ Demonstrate how pushed code on the `development` branch is automatically compile
 
 ---
 
-### 📸 Screenshot Guide (What to Capture)
+### 🖥️ Presenter Screen View (What to Show)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ 📷 SCREENSHOT 2: DEV INTEGRATION WORKFLOW EXECUTION                         │
+│ 🖥️ LIVE VIEW 2: DEV INTEGRATION WORKFLOW EXECUTION                         │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ • Window: Dataform Console -> Workflow Invocations -> dev-execution         │
-│ • Key Elements to Highlight:                                                │
-│   1. Status: "SUCCEEDED" targeting `<dev_project_id>.analytics_curated`     │
-│   2. BigQuery query confirming `customer_tier` updated in shared DEV        │
+│ • Window / Tab: Dataform Console -> Workflow Invocations -> dev-execution   │
+│ • What to Point to on Screen:                                               │
+│   1. Status Banner: "SUCCEEDED" targeting `<dev_project_id>.analytics_curated`│
+│   2. Invocation Details: Service Account `dataform-executor@...`             │
+│   3. BigQuery Studio: Show query results proving `customer_tier` is live    │
+│      in shared DEV (`<dev_project_id>.analytics_curated`).                  │
 │                                                                             │
-│ • Caption: "Figure 2: DEV integration release executed by Service Account,   │
-│   updating the shared <dev_project_id>.analytics_curated dataset."          │
+│ • Presenter Takeaway: "The dev-release pipeline automatically integrated    │
+│   the feature branch under our pipeline Service Account identity."          │
 └─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 🔍 Visual Screen Snapshot:
+```text
+┌── Dataform Workflow Invocations (dev-execution) ───────────────────────────────┐
+│ Target Project: <dev_project_id> | Branch: development | Status: SUCCEEDED     │
+│ Service Account: dataform-executor@<dev_project_id>.iam.gserviceaccount.com    │
+├────────────────────────────────────────────────────────────────────────────────┤
+│ [✔ stg_transactions] ➔ [✔ fct_cleaned_transactions] ➔ [✔ quality_assertions]  │
+└────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -260,34 +287,57 @@ Demonstrate enterprise GitOps controls: branch protection on `main`, mandatory p
 
 ---
 
-### 📸 Screenshot Guide (What to Capture)
+### 🖥️ Presenter Screen View (What to Show)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ 📷 SCREENSHOT 3: PULL REQUEST DIFF & BRANCH PROTECTION                      │
+│ 🖥️ LIVE VIEW 3: PULL REQUEST DIFF & BRANCH PROTECTION                      │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ • Window: Secure Source Manager (<ssm_project_id>)                          │
-│ • Key Elements to Highlight:                                                │
-│   1. PR header showing `development` -> `main`                              │
-│   2. Files Changed tab showing green SQL additions for `customer_tier`     │
-│   3. Branch protection rules check status ("1 approval required")           │
+│ • Window / Tab: Secure Source Manager (<ssm_project_id>)                    │
+│ • What to Point to on Screen:                                               │
+│   1. PR Header: Base `main` <- Compare `development`                        │
+│   2. Files Changed Tab: Highlight green additions for `customer_tier`       │
+│   3. Branch Protection Policy Banner: "1 approval required before merge"    │
 │                                                                             │
-│ • Caption: "Figure 3: Secure Source Manager Pull Request showing SQL diff   │
-│   and branch protection policies on main."                                  │
+│ • Presenter Takeaway: "Direct pushes to main are strictly blocked by SSM.   │
+│   Every production release requires formal peer review and approval."       │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+#### 🔍 Visual Screen Snapshot (Diff & Branch Protection):
+```text
+┌── Secure Source Manager - Pull Request #1 ─────────────────────────────────────┐
+│ Title: feat: add customer_tier metric (development ➔ main)                     │
+│ Checks: [ 1 Approval Required: PENDING ]  | Status: [ Open for Review ]        │
+├────────────────────────────────────────────────────────────────────────────────┤
+│ @@ definitions/outputs/fct_cleaned_transactions.sqlx @@                        │
+│ +   CASE                                                                       │
+│ +     WHEN transaction_amount >= 1000.0 THEN 'PLATINUM'                        │
+│ +     WHEN transaction_amount >= 500.0 THEN 'GOLD'                             │
+│ +     ELSE 'STANDARD'                                                          │
+│ +   END AS customer_tier,                                                      │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ 📷 SCREENSHOT 4: ADMIN APPROVAL & SQUASH MERGE                              │
+│ 🖥️ LIVE VIEW 4: ADMIN APPROVAL & SQUASH MERGE                              │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ • Window: Secure Source Manager (<ssm_project_id>)                          │
-│ • Key Elements to Highlight:                                                │
-│   1. "Approved by admin" green badge                                        │
-│   2. "Pull request successfully merged and closed" status banner            │
+│ • Window / Tab: Secure Source Manager (<ssm_project_id>)                    │
+│ • What to Point to on Screen:                                               │
+│   1. Approval Badge: Green "Approved by Reviewer" status                    │
+│   2. Merge Action: Click "Squash and merge" and show closed PR status       │
 │                                                                             │
-│ • Caption: "Figure 4: Admin code review approval and squash-merge into      │
-│   production main branch."                                                  │
+│ • Presenter Takeaway: "The PR is cleanly merged into main with a linear     │
+│   Git history, ready for the production release build."                     │
 └─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 🔍 Visual Screen Snapshot (Approved & Merged):
+```text
+┌── Secure Source Manager - Pull Request #1 (Merged) ────────────────────────────┐
+│ Status: [ ✔ Approved by Admin ] ➔ [ ✔ Merged and Closed (Squashed into main) ] │
+└────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -321,25 +371,37 @@ Demonstrate how Dataform compiles the merged `main` branch targeting the Product
 
 ---
 
-### 📸 Screenshot Guide (What to Capture)
+### 🖥️ Presenter Screen View (What to Show)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ 📷 SCREENSHOT 5: PRODUCTION WORKFLOW EXECUTION DAG                          │
+│ 🖥️ LIVE VIEW 5: PRODUCTION WORKFLOW EXECUTION DAG                          │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ • Window: Dataform Console -> Workflow Invocations -> prod-execution        │
-│ • Key Elements to Highlight:                                                │
-│   1. Status: "SUCCEEDED" with execution timestamp                           │
-│   2. Compilation Result showing target: `<prod_project_id>`                 │
-│   3. Execution DAG showing all green checkmarks:                           │
+│ • Window / Tab: Dataform Console -> Workflow Invocations -> prod-execution  │
+│ • What to Point to on Screen:                                               │
+│   1. Status Banner: Green "SUCCEEDED" with execution timestamp              │
+│   2. Target Database: `<prod_project_id>`                                   │
+│   3. Live Execution DAG (all green checkmarks):                             │
 │      - stg_transactions (view)                                              │
 │      - fct_cleaned_transactions (table)                                     │
 │      - assert_unique_transaction_id (assertion)                             │
 │      - assert_positive_transaction_amount (assertion)                       │
 │                                                                             │
-│ • Caption: "Figure 5: Dataform production workflow execution targeting      │
-│   <prod_project_id> completed successfully."                                │
+│ • Presenter Takeaway: "The entire production pipeline compiled from main    │
+│   and executed cleanly against production datasets with all assertions green."│
 └─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 🔍 Visual Screen Snapshot:
+```text
+┌── Dataform Workflow Invocations (prod-execution) ──────────────────────────────┐
+│ Target Project: <prod_project_id> | Branch: main | Status: SUCCEEDED           │
+│ Service Account: dataform-executor@<dev_project_id>.iam.gserviceaccount.com    │
+├────────────────────────────────────────────────────────────────────────────────┤
+│ ┌────────────────────┐      ┌──────────────────────────┐      ┌──────────────┐ │
+│ │ ✔ stg_transactions │ ───► │ ✔ fct_cleaned_transactions│ ───► │ ✔ assertions │ │
+│ └────────────────────┘      └──────────────────────────┘      └──────────────┘ │
+└────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -398,22 +460,34 @@ Provide mathematical and cryptographic proof of feature delivery, zero human acc
 
 ---
 
-### 📸 Screenshot Guide (What to Capture)
+### 🖥️ Presenter Screen View (What to Show)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ 📷 SCREENSHOT 6: PRODUCTION DATA & SERVICE ACCOUNT AUDIT PROOF              │
+│ 🖥️ LIVE VIEW 6: PRODUCTION DATA & SERVICE ACCOUNT AUDIT PROOF              │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ • Window: BigQuery Studio / Console (<prod_project_id> / <dev_project_id>)  │
-│ • Key Elements to Highlight:                                                │
+│ • Window / Tab: BigQuery Studio (<prod_project_id> / <dev_project_id>)      │
+│ • What to Point to on Screen:                                               │
 │   1. Top Query Result: `<prod_project_id>.analytics_curated.fct_cleaned_transactions`│
 │      showing `customer_tier` values live in Production                      │
 │   2. Bottom Query Result: `INFORMATION_SCHEMA.JOBS_BY_PROJECT` showing      │
 │      `user_email` = `dataform-executor@<dev_project_id>.iam.gserviceaccount.com` │
 │                                                                             │
-│ • Caption: "Figure 6: Production fact table updated with customer_tier, and │
-│   BigQuery audit logs confirming execution by the Dataform Service Account."│
+│ • Presenter Takeaway: "Production data is live with new business metrics,   │
+│   and BigQuery audit logs provide tamper-proof evidence of zero-human-access."│
 └─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 🔍 Visual Screen Snapshot:
+```text
+┌── BigQuery Query Results (<prod_project_id>.analytics_curated) ────────────────┐
+│ transaction_id │ customer_id │ customer_tier │ processed_at                   │
+│ TXN_000001     │ CUST_1042   │ PLATINUM      │ 2026-10-15 10:00:00 UTC        │
+├────────────────────────────────────────────────────────────────────────────────┤
+│ INFORMATION_SCHEMA.JOBS_BY_PROJECT Audit Record:                               │
+│ user_email: dataform-executor@<dev_project_id>.iam.gserviceaccount.com        │
+│ query: CREATE OR REPLACE TABLE `<prod_project_id>.analytics_curated...`       │
+└────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
