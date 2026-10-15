@@ -12,9 +12,9 @@ source "${SCRIPT_DIR}/../config.env"
 echo "==================================================================="
 echo "🚀 STARTING COMPLETE DATAFORM DEMO ENVIRONMENT DEPLOYMENT"
 echo "==================================================================="
-echo "DEV Project : ${DEV_PROJECT}"
-echo "PROD Project: ${PROD_PROJECT}"
-echo "SSM Project : ${SSM_PROJECT}"
+echo "DEV Project : ${DEV_PROJECT:-<Auto-Provisioned in Step 1>}"
+echo "PROD Project: ${PROD_PROJECT:-<Auto-Provisioned in Step 1>}"
+echo "SSM Project : ${SSM_PROJECT:-<Auto-Provisioned in Step 1>}"
 echo "Location    : ${LOCATION}"
 echo "Developer   : ${DEVELOPER}"
 echo "==================================================================="
@@ -42,6 +42,10 @@ START_TIME=$(date +%s)
 
 # Sequence of Deployment Steps (01 to 10)
 run_step "01_provision_projects.sh"               "Step 1: Provision Projects & Enable GCP APIs"
+
+# Reload configuration to pick up auto-generated project IDs
+source "${SCRIPT_DIR}/../config.env"
+
 run_step "02_create_datasets.sh"                 "Step 2: Create Core BigQuery Datasets"
 run_step "03_seed_prod_data.sh"                  "Step 3: Seed Raw Vault Transactions in PROD"
 run_step "04_configure_iam_security.sh"          "Step 4: Configure Service Accounts & Least-Privilege IAM"
