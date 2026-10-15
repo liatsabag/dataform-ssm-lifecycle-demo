@@ -41,8 +41,15 @@ with open(f, 'w') as fp:
     fp.write(content)
 "
   else
-    echo "⚠️ Warning: No active Billing Account found for the organization/user."
+    echo "❌ Error: Could not auto-detect an active Google Cloud Billing Account for your Organization."
+    echo "A valid billing account is required to provision demo projects and BigQuery datasets."
+    exit 1
   fi
+fi
+
+if [ -z "${BILLING_ID:-}" ]; then
+  echo "❌ Error: BILLING_ID is empty. Aborting deployment."
+  exit 1
 fi
 
 # Auto-discover Folder ID if not explicitly set
