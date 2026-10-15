@@ -15,52 +15,19 @@ echo "=== Step 1: Provisioning Projects & Enabling APIs               ==="
 echo "==================================================================="
 
 # -----------------------------------------------------------------------------
-# 1. Billing Account Discovery & Interactive Selection
+# 1. Billing Account Discovery (Extracted automatically from Organization / Account)
 # -----------------------------------------------------------------------------
 if [ -z "${BILLING_ID:-}" ]; then
-  echo ">>> Discovering active Google Cloud Billing Accounts..."
+  echo ">>> Auto-detecting active Google Cloud Billing Account from Organization..."
   
-  # Fetch all open billing accounts as lines of: ID,NAME
-  ACCOUNTS_RAW=()
-  while IFS= read -r line; do
-    [ -n "${line}" ] && ACCOUNTS_RAW+=("${line}")
-  done < <(gcloud billing accounts list --filter="open=true" --format="csv[no-heading](ACCOUNT_ID,NAME)" 2>/dev/null || true)
-
-  NUM_ACCOUNTS=${#ACCOUNTS_RAW[@]}
-
-  if [ "${NUM_ACCOUNTS}" -eq 0 ]; then
-    echo "❌ No open billing accounts found for the current gcloud user."
-    echo "Please ensure you have Billing Account Administrator / User permissions, or enter a Billing Account ID manually."
-    read -r -p "Enter Billing Account ID (or press Enter to abort): " MANUAL_BILLING_ID
-    if [ -z "${MANUAL_BILLING_ID}" ]; then
-      echo "Aborting deployment: Billing Account is required for BigQuery and resource provisioning."
-      exit 1
-    fi
-    BILLING_ID="${MANUAL_BILLING_ID}"
-  elif [ "${NUM_ACCOUNTS}" -eq 1 ]; then
-    IFS=',' read -r b_id b_name <<< "${ACCOUNTS_RAW[0]}"
-    BILLING_ID="${b_id}"
-    echo "✔ Auto-detected single active Billing Account: ${b_name} (${BILLING_ID})"
-  else
-    echo "Multiple active Billing Accounts detected:"
-    for i in "${!ACCOUNTS_RAW[@]}"; do
-      IFS=',' read -r b_id b_name <<< "${ACCOUNTS_RAW[$i]}"
-      echo "  $((i+1))) ${b_name} (${b_id})"
-    done
+  BILLING_ID=$(gcloud billing accounts list --filter="open=true" --format="value(ACCOUNT_ID)" --limit=1 2>/dev/null || true)
+  
+  if [ -n "${BILLING_ID}" ]; then
+    ACCOUNT_NAME=$(gcloud billing accounts describe "${BILLING_ID}" --format="value(displayName)" 2>/dev/null || echo "Primary Billing Account")
+    echo "✔ Auto-detected Organization Billing Account: ${ACCOUNT_NAME} (${BILLING_ID})"
     
-    CHOICE=0
-    while [[ "${CHOICE}" -lt 1 || "${CHOICE}" -gt "${NUM_ACCOUNTS}" ]]; do
-      read -r -p "Select Billing Account to link [1-${NUM_ACCOUNTS}]: " CHOICE
-    done
-    
-    SELECTED_INDEX=$((CHOICE-1))
-    IFS=',' read -r b_id b_name <<< "${ACCOUNTS_RAW[${SELECTED_INDEX}]}"
-    BILLING_ID="${b_id}"
-    echo "✔ Selected Billing Account: ${b_name} (${BILLING_ID})"
-  fi
-
-  # Persist BILLING_ID to config.env
-  python3 -c "
+    # Persist BILLING_ID to config.env
+    python3 -c "
 import re
 f = '${CONFIG_FILE}'
 with open(f, 'r') as fp:
@@ -73,6 +40,9 @@ else:
 with open(f, 'w') as fp:
     fp.write(content)
 "
+  else
+    echo "⚠️ Warning: No active Billing Account found for the organization/user."
+  fi
 fi
 
 # Auto-discover Folder ID if not explicitly set
