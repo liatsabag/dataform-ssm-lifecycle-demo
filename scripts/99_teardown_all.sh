@@ -153,29 +153,49 @@ for ssm_p in "${SSM_PIDS[@]:-}"; do
   fi
 done
 
-# 4. Reset config.env project IDs
+# 4. Reset config.env and workflow_settings.yaml
+echo "4. Resetting configuration files..."
 python3 -c "
 import re
 f = '${CONFIG_FILE}'
 with open(f, 'r') as fp:
     content = fp.read()
-content = re.sub(r'^export DEV_PROJECT=.*', 'export DEV_PROJECT=\"\"', content, flags=re.MULTILINE)
-content = re.sub(r'^export PROD_PROJECT=.*', 'export PROD_PROJECT=\"\"', content, flags=re.MULTILINE)
-content = re.sub(r'^export SSM_PROJECT=.*', 'export SSM_PROJECT=\"\"', content, flags=re.MULTILINE)
-content = re.sub(r'^export EXECUTOR_SA=.*', '', content, flags=re.MULTILINE)
-content = re.sub(r'^export SOURCE_PROJECT=.*', '', content, flags=re.MULTILINE)
-content = re.sub(r'^export TARGET_PROJECT=.*', '', content, flags=re.MULTILINE)
+
+# If deleting projects or resetting config, clear resolved project IDs and billing
+if '${DELETE_PROJECTS_FLAG}' == '--delete-projects':
+    content = re.sub(r'^export DEV_PROJECT=.*', 'export DEV_PROJECT=\"\"', content, flags=re.MULTILINE)
+    content = re.sub(r'^export PROD_PROJECT=.*', 'export PROD_PROJECT=\"\"', content, flags=re.MULTILINE)
+    content = re.sub(r'^export SSM_PROJECT=.*', 'export SSM_PROJECT=\"\"', content, flags=re.MULTILINE)
+    content = re.sub(r'^export BILLING_ID=.*', 'export BILLING_ID=\"\"', content, flags=re.MULTILINE)
+
+# Always remove runtime-generated exports
+content = re.sub(r'# Auto-resolved Runtime Configuration.*', '', content, flags=re.DOTALL)
 content = re.sub(r'\n{3,}', '\n\n', content)
 with open(f, 'w') as fp:
     fp.write(content.strip() + '\n')
 "
 
+WORKFLOW_SETTINGS="${SCRIPT_DIR}/../workflow_settings.yaml"
+if [ "${DELETE_PROJECTS_FLAG}" = "--delete-projects" ] && [ -f "${WORKFLOW_SETTINGS}" ]; then
+  python3 -c "
+import re
+f = '${WORKFLOW_SETTINGS}'
+with open(f, 'r') as fp:
+    content = fp.read()
+content = re.sub(r'defaultProject:\s*.*', 'defaultProject: df-demo-dev', content)
+content = re.sub(r'source_project:\s*.*', 'source_project: df-demo-prod', content)
+with open(f, 'w') as fp:
+    fp.write(content)
+"
+fi
+
 echo "==================================================================="
 if [ "${DELETE_PROJECTS_FLAG}" = "--delete-projects" ]; then
-  echo "✔ Projects deleted and config.env reset."
+  echo "✔ Projects deleted and config.env reset to pristine defaults."
   echo "Running './scripts/00_deploy_all.sh' will now provision brand new projects from scratch using your project names!"
 else
   echo "✔ All demo datasets, repositories, connections, and service accounts have been wiped."
+  echo "✔ Runtime variables cleared from config.env."
   echo "You can now run './scripts/00_deploy_all.sh' for a fresh deployment test!"
 fi
 echo "==================================================================="
