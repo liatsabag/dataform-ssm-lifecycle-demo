@@ -96,10 +96,9 @@ flowchart LR
 
 ---
 
-## 📚 Demo Guides & Presentation Material
+## 📚 Demo Guide & Presentation Material
 
-* 📖 **[DEMO_SCRIPT.md](DEMO_SCRIPT.md)**: Full presenter script with word-for-word speaker notes, UI action steps, screenshot capture guides, and verification queries.
-* 📋 **[DEMO_GUIDE.md](DEMO_GUIDE.md)**: Comprehensive technical guide and 4 enterprise audit proof queries.
+* 📖 **[DEMO_SCRIPT.md](DEMO_SCRIPT.md)**: Master presentation guide and demo script containing word-for-word presenter narration, UI action steps, screenshot capture guides, and BigQuery enterprise audit proof queries.
 
 ---
 
@@ -184,7 +183,7 @@ Restores all environments, branches, and tables to pristine **v1.0 baseline**:
 ## 🎬 Presenting & Resetting the Demo
 
 1. **Present Live via Google Cloud Console**:
-   Follow the step-by-step narrative and talking points in [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md) and [`DEMO_GUIDE.md`](DEMO_GUIDE.md).
+   Follow the step-by-step narrative and talking points in [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md).
 
 2. **Reset to Baseline Anytime**:
    ```bash
