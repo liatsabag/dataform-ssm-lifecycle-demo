@@ -65,29 +65,6 @@ flowchart LR
 
 ---
 
-### 👥 Roles & Governance Capabilities Matrix
-
-| Capability / Action | Developer (`<developer_email>`) | Reviewer / Admin | Pipeline Service Account |
-| :--- | :---: | :---: | :---: |
-| **Develop in workspace (`workspaces/<developer_workspace>`)** | ✅ **Allowed** | ❌ User-Isolated | ❌ N/A |
-| **Execute in Sandbox (`analytics_curated__<developer_workspace>`)** | ✅ **Allowed** | ✅ Allowed | ❌ N/A |
-| **Read raw data from PROD vault (`raw_vault`)** | ✅ **Allowed** (Read-Only) | ✅ Allowed (Read-Only) | ✅ **Allowed** (Read-Only) |
-| **Push code directly to `development` branch** | ✅ **Allowed** | ✅ Allowed | ❌ N/A |
-| **Push code directly to `main` branch** | 🛑 **Blocked** (Branch Rule) | 🛑 **Blocked** (Branch Rule) | ❌ N/A |
-| **Open Pull Request (`development` $\rightarrow$ `main`)** | ✅ **Allowed** | ✅ Allowed | ❌ N/A |
-| **Approve & Squash-Merge PR into `main`** | 🛑 **Blocked** (Needs Reviewer) | ✅ **Allowed** | ❌ N/A |
-| **Directly write to PROD (`<prod_project_id>.analytics_curated`)** | 🛑 **No Permission** | 🛑 **No Manual Writes** | ✅ **Allowed** (Automated) |
-| **Directly write to shared DEV target** | 🛑 **No Permission** *(Sandbox only)*| 🛑 **Managed by Release** | ✅ **Allowed** (Automated) |
-| **Trigger DEV / PROD Workflow Configurations** | 🛑 **No Permission** | ✅ **Allowed** | ✅ **Execution Identity** |
-| **Audit BigQuery Jobs (`INFORMATION_SCHEMA`)** | ❌ Limited to own jobs | ✅ Full project audit | ❌ Logged Identity |
-
-#### Key Governance Boundaries:
-* **Developer**: Can only modify private sandbox tables and push to `development`. Cannot write to Production or merge own PRs.
-* **Reviewer / Admin**: Approves PRs and manages release configs. Cannot push unreviewed code directly to `main`.
-* **Pipeline Service Account (`dataform-executor`)**: The **only** identity that writes to `<prod_project_id>.analytics_curated` and `<dev_project_id>.analytics_curated` during automated release workflows.
-
----
-
 ## 🧹 Phase 0: Pre-Demo Baseline Reset
 
 > *Run this command prior to presenting to ensure all environments, branches, and tables are restored to v1.0 baseline.*
@@ -441,3 +418,26 @@ Provide mathematical and cryptographic proof of feature delivery, zero human acc
 | **Zero Human Touch** | Least-privilege automated execution in DEV & PROD | BigQuery `user_email: dataform-executor@...` |
 | **Source Immutability** | Read-only raw vault across all environments | `vars.source_project: <prod_project_id>` |
 | **Quality Assertions** | Automated unique key and value constraints | Green assertion nodes in compiled DAG |
+
+---
+
+## 👥 Enterprise Roles & Governance Matrix (Appendix)
+
+| Capability / Action | Developer (`<developer_email>`) | Reviewer / Admin | Pipeline Service Account |
+| :--- | :---: | :---: | :---: |
+| **Develop in workspace (`workspaces/<developer_workspace>`)** | ✅ **Allowed** | ❌ User-Isolated | ❌ N/A |
+| **Execute in Sandbox (`analytics_curated__<developer_workspace>`)** | ✅ **Allowed** | ✅ Allowed | ❌ N/A |
+| **Read raw data from PROD vault (`raw_vault`)** | ✅ **Allowed** (Read-Only) | ✅ Allowed (Read-Only) | ✅ **Allowed** (Read-Only) |
+| **Push code directly to `development` branch** | ✅ **Allowed** | ✅ Allowed | ❌ N/A |
+| **Push code directly to `main` branch** | 🛑 **Blocked** (Branch Rule) | 🛑 **Blocked** (Branch Rule) | ❌ N/A |
+| **Open Pull Request (`development` $\rightarrow$ `main`)** | ✅ **Allowed** | ✅ Allowed | ❌ N/A |
+| **Approve & Squash-Merge PR into `main`** | 🛑 **Blocked** (Needs Reviewer) | ✅ **Allowed** | ❌ N/A |
+| **Directly write to PROD (`<prod_project_id>.analytics_curated`)** | 🛑 **No Permission** | 🛑 **No Manual Writes** | ✅ **Allowed** (Automated) |
+| **Directly write to shared DEV target** | 🛑 **No Permission** *(Sandbox only)*| 🛑 **Managed by Release** | ✅ **Allowed** (Automated) |
+| **Trigger DEV / PROD Workflow Configurations** | 🛑 **No Permission** | ✅ **Allowed** | ✅ **Execution Identity** |
+| **Audit BigQuery Jobs (`INFORMATION_SCHEMA`)** | ❌ Limited to own jobs | ✅ Full project audit | ❌ Logged Identity |
+
+#### Key Governance Boundaries:
+* **Developer**: Can only modify private sandbox tables and push to `development`. Cannot write to Production or merge own PRs.
+* **Reviewer / Admin**: Approves PRs and manages release configs. Cannot push unreviewed code directly to `main`.
+* **Pipeline Service Account (`dataform-executor`)**: The **only** identity that writes to `<prod_project_id>.analytics_curated` and `<dev_project_id>.analytics_curated` during automated release workflows.
