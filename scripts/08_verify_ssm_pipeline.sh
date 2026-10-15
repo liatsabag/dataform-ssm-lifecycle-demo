@@ -41,7 +41,7 @@ TOTAL_TESTS=6
 # Test 1: SSM Instance State
 echo ""
 echo ">>> [Test 1/6] SSM Instance Existence & ACTIVE Status in ${SSM_PROJECT} <<<"
-INSTANCE_STATE=$(gcloud source-manager instances describe "${INSTANCE_ID}" \
+INSTANCE_STATE=$(gcloud beta source-manager instances describe "${INSTANCE_ID}" \
   --region="${LOCATION}" \
   --project="${SSM_PROJECT}" \
   --format="value(state)" 2>/dev/null || echo "NOT_FOUND")
@@ -56,7 +56,7 @@ fi
 # Test 2: Repository and Branches
 echo ""
 echo ">>> [Test 2/6] Repository & Branch Validation in ${SSM_PROJECT} <<<"
-REPO_NAME=$(gcloud source-manager repos describe "${REPO_ID}" \
+REPO_NAME=$(gcloud beta source-manager repos describe "${REPO_ID}" \
   --region="${LOCATION}" \
   --project="${SSM_PROJECT}" \
   --format="value(name)" 2>/dev/null || echo "NOT_FOUND")

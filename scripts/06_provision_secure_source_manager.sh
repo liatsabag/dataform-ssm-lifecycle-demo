@@ -57,11 +57,11 @@ echo "PROD Dataform SA     : ${PROD_DATAFORM_SA}"
 # Step 3: Provision or Validate Secure Source Manager Instance
 echo ""
 echo "--- Step 3: Provisioning / Validating SSM Instance (${INSTANCE_ID}) ---"
-INSTANCE_STATE=$(gcloud source-manager instances describe "${INSTANCE_ID}" --region="${LOCATION}" --project="${SSM_PROJECT}" --format="value(state)" 2>/dev/null || echo "NOT_FOUND")
+INSTANCE_STATE=$(gcloud beta source-manager instances describe "${INSTANCE_ID}" --region="${LOCATION}" --project="${SSM_PROJECT}" --format="value(state)" 2>/dev/null || echo "NOT_FOUND")
 
 if [ "${INSTANCE_STATE}" = "NOT_FOUND" ]; then
   echo "SSM Instance '${INSTANCE_ID}' not found in ${SSM_PROJECT}. Initiating creation in ${LOCATION}..."
-  gcloud source-manager instances create "${INSTANCE_ID}" \
+  gcloud beta source-manager instances create "${INSTANCE_ID}" \
     --region="${LOCATION}" \
     --project="${SSM_PROJECT}" \
     --async
@@ -71,7 +71,7 @@ fi
 if [ "${INSTANCE_STATE}" != "ACTIVE" ]; then
   echo "Waiting for SSM instance '${INSTANCE_ID}' to become ACTIVE..."
   while true; do
-    STATE=$(gcloud source-manager instances describe "${INSTANCE_ID}" --region="${LOCATION}" --project="${SSM_PROJECT}" --format="value(state)" 2>/dev/null || echo "CREATING")
+    STATE=$(gcloud beta source-manager instances describe "${INSTANCE_ID}" --region="${LOCATION}" --project="${SSM_PROJECT}" --format="value(state)" 2>/dev/null || echo "CREATING")
     echo "  Current state: ${STATE} - $(date '+%H:%M:%S')"
     if [ "${STATE}" = "ACTIVE" ]; then
       echo "✔ SSM Instance is now ACTIVE!"
@@ -99,25 +99,25 @@ gcloud projects add-iam-policy-binding "${SSM_PROJECT}" \
   --role="roles/securesourcemanager.instanceAccessor" \
   --condition=None >/dev/null 2>&1 || true
 
-gcloud source-manager instances add-iam-policy-binding "${INSTANCE_ID}" \
+gcloud beta source-manager instances add-iam-policy-binding "${INSTANCE_ID}" \
   --region="${LOCATION}" \
   --project="${SSM_PROJECT}" \
   --member="user:${DEVELOPER}" \
   --role="roles/securesourcemanager.instanceAccessor" >/dev/null 2>&1 || true
 
-gcloud source-manager instances add-iam-policy-binding "${INSTANCE_ID}" \
+gcloud beta source-manager instances add-iam-policy-binding "${INSTANCE_ID}" \
   --region="${LOCATION}" \
   --project="${SSM_PROJECT}" \
   --member="serviceAccount:${DEV_DATAFORM_SA}" \
   --role="roles/securesourcemanager.instanceAccessor" >/dev/null 2>&1 || true
 
-gcloud source-manager instances add-iam-policy-binding "${INSTANCE_ID}" \
+gcloud beta source-manager instances add-iam-policy-binding "${INSTANCE_ID}" \
   --region="${LOCATION}" \
   --project="${SSM_PROJECT}" \
   --member="serviceAccount:${DEV_DEVCONNECT_SA}" \
   --role="roles/securesourcemanager.instanceAccessor" >/dev/null 2>&1 || true
 
-gcloud source-manager instances add-iam-policy-binding "${INSTANCE_ID}" \
+gcloud beta source-manager instances add-iam-policy-binding "${INSTANCE_ID}" \
   --region="${LOCATION}" \
   --project="${SSM_PROJECT}" \
   --member="serviceAccount:${DEV_DEVCONNECT_SA}" \
@@ -126,11 +126,11 @@ gcloud source-manager instances add-iam-policy-binding "${INSTANCE_ID}" \
 # Step 5: Provision or Validate Git Repository with default-branch=development
 echo ""
 echo "--- Step 5: Provisioning / Validating Repository (${REPO_ID}) ---"
-REPO_EXISTS=$(gcloud source-manager repos describe "${REPO_ID}" --region="${LOCATION}" --project="${SSM_PROJECT}" --format="value(name)" 2>/dev/null || echo "NOT_FOUND")
+REPO_EXISTS=$(gcloud beta source-manager repos describe "${REPO_ID}" --region="${LOCATION}" --project="${SSM_PROJECT}" --format="value(name)" 2>/dev/null || echo "NOT_FOUND")
 
 if [ "${REPO_EXISTS}" = "NOT_FOUND" ]; then
   echo "Creating repository '${REPO_ID}' with default branch '${DEFAULT_BRANCH}' in ${SSM_PROJECT}..."
-  gcloud source-manager repos create "${REPO_ID}" \
+  gcloud beta source-manager repos create "${REPO_ID}" \
     --instance="${INSTANCE_ID}" \
     --region="${LOCATION}" \
     --project="${SSM_PROJECT}" \
@@ -234,25 +234,25 @@ fi
 # Step 8: Assign Repository Roles in SSM
 echo ""
 echo "--- Step 8: Assigning SSM Repository Roles ---"
-gcloud source-manager repos add-iam-policy-binding "${REPO_ID}" \
+gcloud beta source-manager repos add-iam-policy-binding "${REPO_ID}" \
   --region="${LOCATION}" \
   --project="${SSM_PROJECT}" \
   --member="user:${DEVELOPER}" \
   --role="roles/securesourcemanager.repoAdmin" >/dev/null 2>&1 || true
 
-gcloud source-manager repos add-iam-policy-binding "${REPO_ID}" \
+gcloud beta source-manager repos add-iam-policy-binding "${REPO_ID}" \
   --region="${LOCATION}" \
   --project="${SSM_PROJECT}" \
   --member="serviceAccount:${DEV_DEVCONNECT_SA}" \
   --role="roles/securesourcemanager.developerConnectLinker" >/dev/null 2>&1 || true
 
-gcloud source-manager repos add-iam-policy-binding "${REPO_ID}" \
+gcloud beta source-manager repos add-iam-policy-binding "${REPO_ID}" \
   --region="${LOCATION}" \
   --project="${SSM_PROJECT}" \
   --member="serviceAccount:${DEV_DEVCONNECT_SA}" \
   --role="roles/securesourcemanager.repoWriter" >/dev/null 2>&1 || true
 
-gcloud source-manager repos add-iam-policy-binding "${REPO_ID}" \
+gcloud beta source-manager repos add-iam-policy-binding "${REPO_ID}" \
   --region="${LOCATION}" \
   --project="${SSM_PROJECT}" \
   --member="serviceAccount:${DEV_DATAFORM_SA}" \

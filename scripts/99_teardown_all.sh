@@ -141,7 +141,7 @@ for ssm_p in "${SSM_PIDS[@]:-}"; do
 
   # 3.1 Delete SSM Repository
   echo "  1. Deleting Secure Source Manager repository in ${ssm_p}..."
-  gcloud source-manager repos delete "${REPO_ID}" \
+  gcloud beta source-manager repos delete "${REPO_ID}" \
     --region="${LOCATION}" \
     --project="${ssm_p}" \
     --quiet 2>/dev/null || true
