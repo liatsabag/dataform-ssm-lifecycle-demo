@@ -21,6 +21,17 @@ if [ -z "${BILLING_ID:-}" ]; then
   fi
   if [ -n "${BILLING_ID}" ]; then
     echo "✔ Auto-detected Billing Account: ${BILLING_ID}"
+    python3 -c "
+import re
+f = '${CONFIG_FILE}'
+with open(f, 'r') as fp:
+    content = fp.read()
+pattern = r'^export BILLING_ID=.*'
+if re.search(pattern, content, flags=re.MULTILINE):
+    content = re.sub(pattern, 'export BILLING_ID=\"${BILLING_ID}\"', content, flags=re.MULTILINE)
+with open(f, 'w') as fp:
+    fp.write(content)
+"
   fi
 fi
 
@@ -109,8 +120,22 @@ with open(f, 'w') as fp:
 
   if [ -n "${BILLING_ID:-}" ]; then
     echo "Linking billing account ${BILLING_ID} to ${target_id}..."
-    gcloud billing projects link "${target_id}" --billing-account="${BILLING_ID}" 2>/dev/null || \
-    gcloud billing projects link "${target_id}" --billing-account="${BILLING_ID}" --billing-project="${target_id}" 2>/dev/null || true
+    local billing_linked="false"
+    for _ in {1..15}; do
+      if gcloud billing projects link "${target_id}" --billing-account="${BILLING_ID}" >/dev/null 2>&1; then
+        billing_linked="true"
+        echo "✔ Billing account ${BILLING_ID} linked successfully to ${target_id}."
+        break
+      fi
+      sleep 2
+    done
+
+    if [ "${billing_linked}" != "true" ]; then
+      echo "❌ Error: Could not link billing account ${BILLING_ID} to ${target_id} after retries."
+      exit 1
+    fi
+  else
+    echo "⚠️ Warning: No BILLING_ID set or auto-detected. BigQuery queries may fail if billing is required."
   fi
   
   eval "${id_var}=\"${target_id}\""
