@@ -72,32 +72,34 @@ if [ "${INSTANCE_STATE}" = "NOT_FOUND" ]; then
 fi
 
 if [ "${INSTANCE_STATE}" != "ACTIVE" ]; then
-  echo "Waiting for SSM instance '${INSTANCE_ID}' to become ACTIVE (typically takes ~5-10 minutes)..."
-  MAX_WAIT_MINUTES=25
-  ELAPSED=0
-  while [ "${ELAPSED}" -lt "${MAX_WAIT_MINUTES}" ]; do
+  echo "Waiting for SSM instance '${INSTANCE_ID}' to become ACTIVE (SSM dedicated instance provisioning typically takes 30-50 minutes)..."
+  MAX_WAIT_MINUTES=60
+  START_TIME=$(date +%s)
+  while true; do
     DESC_OUTPUT=$(gcloud beta source-manager instances describe "${INSTANCE_ID}" --region="${LOCATION}" --project="${SSM_PROJECT}" --format="value(state)" 2>&1) || true
     
+    NOW=$(date +%s)
+    ELAPSED_MINUTES=$(( (NOW - START_TIME) / 60 ))
+
     if echo "${DESC_OUTPUT}" | grep -q "^ACTIVE$"; then
-      echo "✔ SSM Instance is now ACTIVE!"
+      echo "✔ SSM Instance is now ACTIVE! (Completed in ${ELAPSED_MINUTES}m)"
       break
     elif echo "${DESC_OUTPUT}" | grep -q "^FAILED$"; then
       echo "✘ SSM Instance creation FAILED. Error details:"
       echo "${DESC_OUTPUT}"
       exit 1
     elif echo "${DESC_OUTPUT}" | grep -qi "NOT_FOUND"; then
-      echo "  [$(date '+%H:%M:%S')] Instance provisioning queued/initializing... (${ELAPSED}m elapsed)"
+      echo "  [$(date '+%H:%M:%S')] Instance provisioning queued/initializing... (${ELAPSED_MINUTES}m elapsed)"
     else
-      echo "  [$(date '+%H:%M:%S')] Current state: ${DESC_OUTPUT} (${ELAPSED}m elapsed)"
+      echo "  [$(date '+%H:%M:%S')] Current state: ${DESC_OUTPUT} (${ELAPSED_MINUTES}m elapsed)"
+    fi
+
+    if [ "${ELAPSED_MINUTES}" -ge "${MAX_WAIT_MINUTES}" ]; then
+      echo "✘ Timeout reached (${MAX_WAIT_MINUTES} minutes) waiting for SSM instance '${INSTANCE_ID}' to become ACTIVE."
+      exit 1
     fi
     sleep 30
-    ELAPSED=$((ELAPSED + 1))
   done
-  
-  if [ "${ELAPSED}" -ge "${MAX_WAIT_MINUTES}" ]; then
-    echo "✘ Timeout reached (${MAX_WAIT_MINUTES} minutes) waiting for SSM instance '${INSTANCE_ID}' to become ACTIVE."
-    exit 1
-  fi
 else
   echo "✔ SSM Instance '${INSTANCE_ID}' is ACTIVE."
 fi
