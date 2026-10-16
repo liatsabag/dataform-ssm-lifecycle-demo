@@ -238,6 +238,7 @@ echo "✔ Clean Dataform codebase seeded to both 'main' and 'development' branch
 # Step 7: Configure Main Branch Protection Policy (Protecting 'main')
 echo ""
 echo "--- Step 7: Configuring Main Branch Protection Policy on 'main' ---"
+TOKEN=$(gcloud auth print-access-token)
 BRANCH_RULE_PAYLOAD=$(cat <<EOF
 {
   "includePattern": "main",
