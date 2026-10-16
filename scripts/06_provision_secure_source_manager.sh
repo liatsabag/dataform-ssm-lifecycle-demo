@@ -205,32 +205,28 @@ curl -s -X DELETE \
   git checkout -b main >/dev/null 2>&1 || git checkout -B main >/dev/null 2>&1
   git add .
   git commit -m "feat: initial dataform 3-tier pipeline baseline" >/dev/null 2>&1
-  git branch -M main >/dev/null 2>&1
   git checkout -b development >/dev/null 2>&1
 
   SSM_GIT_URL="https://${INSTANCE_ID}-${SSM_PROJECT_NUM}-git.${LOCATION}.sourcemanager.dev/${SSM_PROJECT}/${REPO_ID}.git"
+  git remote add origin "${SSM_GIT_URL}"
   
-  echo "Pushing clean Dataform code to SSM 'main' branch..."
+  echo "Pushing clean Dataform code to SSM 'main' and 'development' branches..."
   MAX_GIT_ATTEMPTS=5
   GIT_ATTEMPT=1
   while [ "${GIT_ATTEMPT}" -le "${MAX_GIT_ATTEMPTS}" ]; do
-    if git -c credential.helper=gcloud.sh push --force "${SSM_GIT_URL}" main:main; then
-      echo "✔ Successfully pushed 'main' branch to SSM."
+    if git -c credential.helper=gcloud.sh push --force origin main:refs/heads/main development:refs/heads/development; then
+      echo "✔ Successfully pushed 'main' and 'development' branches to SSM."
       break
     else
-      echo "⚠️ Git push to main waiting for SSM repo IAM propagation (attempt ${GIT_ATTEMPT}/${MAX_GIT_ATTEMPTS})..."
+      echo "⚠️ Git push waiting for SSM repo IAM propagation (attempt ${GIT_ATTEMPT}/${MAX_GIT_ATTEMPTS})..."
       GIT_ATTEMPT=$((GIT_ATTEMPT + 1))
       if [ "${GIT_ATTEMPT}" -gt "${MAX_GIT_ATTEMPTS}" ]; then
-        echo "✘ Failed to push to SSM 'main' branch."
+        echo "✘ Failed to push branches to SSM."
         exit 1
       fi
       sleep 10
     fi
   done
-
-  echo "Pushing clean Dataform code to SSM 'development' branch..."
-  git -c credential.helper=gcloud.sh push --force "${SSM_GIT_URL}" development:development
-  echo "✔ Successfully pushed 'development' branch to SSM."
 )
 rm -rf "${TEMP_DATA_DIR}"
 echo "✔ Clean Dataform codebase seeded to both 'main' and 'development' branches."

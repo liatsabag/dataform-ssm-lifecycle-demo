@@ -112,11 +112,8 @@ git config user.email "automation@altostrat.com"
 git checkout main
 git add definitions/outputs/fct_cleaned_transactions.sqlx
 git commit -m "chore: reset baseline to v1.0 (without customer_tier)" >/dev/null 2>&1 || true
-git -c credential.helper=gcloud.sh push origin main --force >/dev/null 2>&1
-
-git checkout "${DEFAULT_BRANCH}" 2>/dev/null || git checkout -b "${DEFAULT_BRANCH}"
-git reset --hard main
-git -c credential.helper=gcloud.sh push origin "${DEFAULT_BRANCH}" --force >/dev/null 2>&1
+git checkout -B "${DEFAULT_BRANCH}" main >/dev/null 2>&1
+git -c credential.helper=gcloud.sh push origin main:refs/heads/main "${DEFAULT_BRANCH}:refs/heads/${DEFAULT_BRANCH}" --force >/dev/null 2>&1
 
 popd >/dev/null
 rm -rf "${TMP_WORKSPACE}"
