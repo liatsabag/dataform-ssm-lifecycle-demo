@@ -94,10 +94,25 @@ gcloud projects add-iam-policy-binding "${SSM_PROJECT}" \
   --condition=None >/dev/null 2>&1 || true
 
 # Dataform Service Agents Permissions
-echo "Granting bigquery.jobUser to Dataform Service Agents..."
+echo "Granting bigquery.jobUser & developerconnect roles to Dataform Service Agents..."
 gcloud projects add-iam-policy-binding "${DEV_PROJECT}" \
   --member="serviceAccount:${DEV_DATAFORM_SA}" \
   --role="roles/bigquery.jobUser" \
+  --condition=None >/dev/null 2>&1 || true
+
+gcloud projects add-iam-policy-binding "${DEV_PROJECT}" \
+  --member="serviceAccount:${DEV_DATAFORM_SA}" \
+  --role="roles/developerconnect.gitProxyUser" \
+  --condition=None >/dev/null 2>&1 || true
+
+gcloud projects add-iam-policy-binding "${DEV_PROJECT}" \
+  --member="serviceAccount:${DEV_DATAFORM_SA}" \
+  --role="roles/developerconnect.tokenAccessor" \
+  --condition=None >/dev/null 2>&1 || true
+
+gcloud projects add-iam-policy-binding "${DEV_PROJECT}" \
+  --member="serviceAccount:${DEV_DATAFORM_SA}" \
+  --role="roles/developerconnect.viewer" \
   --condition=None >/dev/null 2>&1 || true
 
 gcloud projects add-iam-policy-binding "${PROD_PROJECT}" \
