@@ -358,7 +358,7 @@ CLONE_URI="https://${INSTANCE_ID}-${SSM_PROJECT_NUM}-git.${LOCATION}.sourcemanag
 
 if [ "${LINK_EXISTS}" = "NOT_FOUND" ]; then
   echo "Creating Developer Connect Git Repository Link '${REPO_ID}' (with retry for IAM propagation)..."
-  MAX_LINK_ATTEMPTS=5
+  MAX_LINK_ATTEMPTS=8
   LINK_ATTEMPT=1
   while [ "${LINK_ATTEMPT}" -le "${MAX_LINK_ATTEMPTS}" ]; do
     if gcloud beta developer-connect connections git-repository-links create "${REPO_ID}" \
@@ -375,7 +375,7 @@ if [ "${LINK_EXISTS}" = "NOT_FOUND" ]; then
         echo "✘ Failed to create Git repository link after ${MAX_LINK_ATTEMPTS} attempts."
         exit 1
       fi
-      sleep 10
+      sleep 15
     fi
   done
 else
