@@ -203,12 +203,29 @@ curl -s -X DELETE \
   git branch -M main >/dev/null 2>&1
   git checkout -b development >/dev/null 2>&1
 
-  SSM_GIT_URL="https://oauth2accesstoken:${TOKEN}@${INSTANCE_ID}-${SSM_PROJECT_NUM}-git.${LOCATION}.sourcemanager.dev/${SSM_PROJECT}/${REPO_ID}.git"
+  SSM_GIT_URL="https://${INSTANCE_ID}-${SSM_PROJECT_NUM}-git.${LOCATION}.sourcemanager.dev/${SSM_PROJECT}/${REPO_ID}.git"
+  
   echo "Pushing clean Dataform code to SSM 'main' branch..."
-  git push --force "${SSM_GIT_URL}" main:main >/dev/null 2>&1 || true
+  MAX_GIT_ATTEMPTS=5
+  GIT_ATTEMPT=1
+  while [ "${GIT_ATTEMPT}" -le "${MAX_GIT_ATTEMPTS}" ]; do
+    if git -c http.extraheader="Authorization: Bearer ${TOKEN}" push --force "${SSM_GIT_URL}" main:main; then
+      echo "✔ Successfully pushed 'main' branch to SSM."
+      break
+    else
+      echo "⚠️ Git push to main waiting for SSM repo IAM propagation (attempt ${GIT_ATTEMPT}/${MAX_GIT_ATTEMPTS})..."
+      GIT_ATTEMPT=$((GIT_ATTEMPT + 1))
+      if [ "${GIT_ATTEMPT}" -gt "${MAX_GIT_ATTEMPTS}" ]; then
+        echo "✘ Failed to push to SSM 'main' branch."
+        exit 1
+      fi
+      sleep 10
+    fi
+  done
 
   echo "Pushing clean Dataform code to SSM 'development' branch..."
-  git push --force "${SSM_GIT_URL}" development:development >/dev/null 2>&1 || true
+  git -c http.extraheader="Authorization: Bearer ${TOKEN}" push --force "${SSM_GIT_URL}" development:development
+  echo "✔ Successfully pushed 'development' branch to SSM."
 )
 rm -rf "${TEMP_DATA_DIR}"
 echo "✔ Clean Dataform codebase seeded to both 'main' and 'development' branches."
@@ -241,7 +258,7 @@ if echo "${EXISTING_RULES}" | grep -q "${RULE_ID}"; then
     -H "Authorization: Bearer ${TOKEN}" \
     -H "Content-Type: application/json" \
     -d "${BRANCH_RULE_PAYLOAD}" \
-    "${API_BASE}/${REPO_PATH}/branchRules/${RULE_ID}?updateMask=${UPDATE_MASK}" >/dev/null 2>&1 || true
+    "${API_BASE}/${REPO_PATH}/branchRules/${RULE_ID}?updateMask=${UPDATE_MASK}" >/dev/null
   echo "✔ Branch protection rule '${RULE_ID}' updated."
 else
   echo "Creating branch rule '${RULE_ID}' on branch 'main'..."
@@ -249,7 +266,7 @@ else
     -H "Authorization: Bearer ${TOKEN}" \
     -H "Content-Type: application/json" \
     -d "${BRANCH_RULE_PAYLOAD}" \
-    "${API_BASE}/${REPO_PATH}/branchRules?branchRuleId=${RULE_ID}" >/dev/null 2>&1 || true
+    "${API_BASE}/${REPO_PATH}/branchRules?branchRuleId=${RULE_ID}" >/dev/null
   echo "✔ Branch protection rule '${RULE_ID}' created."
 fi
 
@@ -310,7 +327,8 @@ if [ "${CONN_EXISTS}" = "NOT_FOUND" ]; then
     if gcloud beta developer-connect connections create "${CONN_ID}" \
       --location="${LOCATION}" \
       --project="${DEV_PROJECT}" \
-      --secure-source-manager-instance-config="projects/${SSM_PROJECT}/locations/${LOCATION}/instances/${INSTANCE_ID}"; then
+      --secure-source-manager-instance-config="projects/${SSM_PROJECT}/locations/${LOCATION}/instances/${INSTANCE_ID}" \
+      --git-proxy-config-enabled; then
       echo "✔ Developer Connect Connection '${CONN_ID}' created."
       break
     else
@@ -324,16 +342,13 @@ if [ "${CONN_EXISTS}" = "NOT_FOUND" ]; then
     fi
   done
 else
-  echo "✔ Developer Connect Connection '${CONN_ID}' already exists."
+  echo "Ensuring Git Proxy is enabled on Connection '${CONN_ID}'..."
+  gcloud beta developer-connect connections update "${CONN_ID}" \
+    --location="${LOCATION}" \
+    --project="${DEV_PROJECT}" \
+    --git-proxy-config-enabled >/dev/null 2>&1 || true
+  echo "✔ Developer Connect Connection '${CONN_ID}' verified."
 fi
-
-# Enable Git Proxy on Developer Connect Connection
-echo "Enabling Git Proxy on Connection '${CONN_ID}'..."
-curl -s -X PATCH \
-  -H "Authorization: Bearer ${TOKEN}" \
-  -H "Content-Type: application/json" \
-  -d '{"gitProxyConfig": {"enabled": true}}' \
-  "https://developerconnect.googleapis.com/v1/projects/${DEV_PROJECT}/locations/${LOCATION}/connections/${CONN_ID}?updateMask=gitProxyConfig" >/dev/null 2>&1 || true
 
 # Create Git Repository Link
 LINK_EXISTS=$(gcloud beta developer-connect connections git-repository-links describe "${REPO_ID}" --connection="${CONN_ID}" --location="${LOCATION}" --project="${DEV_PROJECT}" --format="value(name)" 2>/dev/null || echo "NOT_FOUND")
