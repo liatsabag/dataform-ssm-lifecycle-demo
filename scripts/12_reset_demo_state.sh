@@ -21,10 +21,13 @@ echo " 6. Removes developer sandbox datasets (__alice)"
 echo " 7. Verifies 'customer_tier' is removed from DEV & PROD BigQuery tables"
 echo "==================================================================="
 
+export GIT_TERMINAL_PROMPT=0
+GCLOUD_SDK_ROOT=$(gcloud info --format="value(installation.sdk_root)")
+export PATH="${GCLOUD_SDK_ROOT}/bin:${PATH}"
+git config --global credential.'https://*.*.sourcemanager.dev'.helper gcloud.sh 2>/dev/null || true
+
 SSM_PROJECT_NUM=$(gcloud projects describe "${SSM_PROJECT}" --format="value(projectNumber)")
 GIT_HTTPS_URL="https://${INSTANCE_ID}-${SSM_PROJECT_NUM}-git.${LOCATION}.sourcemanager.dev/${SSM_PROJECT}/${REPO_ID}.git"
-GCLOUD_SDK_ROOT=$(gcloud info --format="value(installation.sdk_root)")
-CRED_HELPER="${GCLOUD_SDK_ROOT}/bin/git-credential-gcloud.sh"
 TOKEN=$(gcloud auth print-access-token)
 API_BASE="https://securesourcemanager.googleapis.com/v1"
 REPO_PATH="projects/${SSM_PROJECT}/locations/${LOCATION}/repositories/${REPO_ID}"
@@ -41,7 +44,7 @@ curl -s -X DELETE \
 echo ""
 echo ">>> [Step 2/6] Resetting Git repository on 'main' and '${DEFAULT_BRANCH}' to v1.0 baseline <<<"
 TMP_WORKSPACE=$(mktemp -d)
-git -c http.extraheader="Authorization: Bearer ${TOKEN}" clone "${GIT_HTTPS_URL}" "${TMP_WORKSPACE}" >/dev/null 2>&1
+git -c credential.helper=gcloud.sh clone "${GIT_HTTPS_URL}" "${TMP_WORKSPACE}" >/dev/null 2>&1
 
 pushd "${TMP_WORKSPACE}" >/dev/null
 
@@ -109,11 +112,11 @@ git config user.email "automation@altostrat.com"
 git checkout main
 git add definitions/outputs/fct_cleaned_transactions.sqlx
 git commit -m "chore: reset baseline to v1.0 (without customer_tier)" >/dev/null 2>&1 || true
-git -c http.extraheader="Authorization: Bearer ${TOKEN}" push origin main --force >/dev/null 2>&1
+git -c credential.helper=gcloud.sh push origin main --force >/dev/null 2>&1
 
 git checkout "${DEFAULT_BRANCH}" 2>/dev/null || git checkout -b "${DEFAULT_BRANCH}"
 git reset --hard main
-git -c http.extraheader="Authorization: Bearer ${TOKEN}" push origin "${DEFAULT_BRANCH}" --force >/dev/null 2>&1
+git -c credential.helper=gcloud.sh push origin "${DEFAULT_BRANCH}" --force >/dev/null 2>&1
 
 popd >/dev/null
 rm -rf "${TMP_WORKSPACE}"

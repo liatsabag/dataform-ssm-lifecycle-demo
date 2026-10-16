@@ -13,6 +13,11 @@ if [[ "${DEVELOPER:-}" == *"@mydomain.com"* ]] || [ -z "${DEVELOPER:-}" ]; then
   DEVELOPER=$(gcloud config get-value account 2>/dev/null || echo "${DEVELOPER}")
 fi
 
+export GIT_TERMINAL_PROMPT=0
+GCLOUD_SDK_ROOT=$(gcloud info --format="value(installation.sdk_root)")
+export PATH="${GCLOUD_SDK_ROOT}/bin:${PATH}"
+git config --global credential.'https://*.*.sourcemanager.dev'.helper gcloud.sh 2>/dev/null || true
+
 echo "==================================================================="
 echo "=== Step 6: Provisioning Secure Source Manager & Dev Connect    ==="
 echo "==================================================================="
@@ -209,7 +214,7 @@ curl -s -X DELETE \
   MAX_GIT_ATTEMPTS=5
   GIT_ATTEMPT=1
   while [ "${GIT_ATTEMPT}" -le "${MAX_GIT_ATTEMPTS}" ]; do
-    if git -c http.extraheader="Authorization: Bearer ${TOKEN}" push --force "${SSM_GIT_URL}" main:main; then
+    if git -c credential.helper=gcloud.sh push --force "${SSM_GIT_URL}" main:main; then
       echo "✔ Successfully pushed 'main' branch to SSM."
       break
     else
@@ -224,7 +229,7 @@ curl -s -X DELETE \
   done
 
   echo "Pushing clean Dataform code to SSM 'development' branch..."
-  git -c http.extraheader="Authorization: Bearer ${TOKEN}" push --force "${SSM_GIT_URL}" development:development
+  git -c credential.helper=gcloud.sh push --force "${SSM_GIT_URL}" development:development
   echo "✔ Successfully pushed 'development' branch to SSM."
 )
 rm -rf "${TEMP_DATA_DIR}"

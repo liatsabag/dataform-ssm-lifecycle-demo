@@ -13,6 +13,11 @@ if [[ "${DEVELOPER:-}" == *"@mydomain.com"* ]] || [ -z "${DEVELOPER:-}" ]; then
   DEVELOPER=$(gcloud config get-value account 2>/dev/null || echo "${DEVELOPER}")
 fi
 
+export GIT_TERMINAL_PROMPT=0
+GCLOUD_SDK_ROOT=$(gcloud info --format="value(installation.sdk_root)")
+export PATH="${GCLOUD_SDK_ROOT}/bin:${PATH}"
+git config --global credential.'https://*.*.sourcemanager.dev'.helper gcloud.sh 2>/dev/null || true
+
 echo "==================================================================="
 echo "=== Step 8: Comprehensive SSM & Developer Connect Verification  ==="
 echo "==================================================================="
@@ -62,7 +67,7 @@ REPO_NAME=$(gcloud beta source-manager repos describe "${REPO_ID}" \
   --format="value(name)" 2>/dev/null || echo "NOT_FOUND")
 
 SSM_GIT_URL="https://${INSTANCE_ID}-${SSM_PROJECT_NUM}-git.${LOCATION}.sourcemanager.dev/${SSM_PROJECT}/${REPO_ID}.git"
-REMOTE_BRANCHES=$(git -c http.extraheader="Authorization: Bearer ${TOKEN}" ls-remote --heads "${SSM_GIT_URL}" 2>/dev/null || true)
+REMOTE_BRANCHES=$(git -c credential.helper=gcloud.sh ls-remote --heads "${SSM_GIT_URL}" 2>/dev/null || true)
 
 HAS_MAIN=$(echo "${REMOTE_BRANCHES}" | grep -c "refs/heads/main" || true)
 HAS_DEV=$(echo "${REMOTE_BRANCHES}" | grep -c "refs/heads/development" || true)
