@@ -41,7 +41,7 @@ curl -s -X DELETE \
 echo ""
 echo ">>> [Step 2/6] Resetting Git repository on 'main' and '${DEFAULT_BRANCH}' to v1.0 baseline <<<"
 TMP_WORKSPACE=$(mktemp -d)
-git -c credential.helper="${CRED_HELPER}" clone "${GIT_HTTPS_URL}" "${TMP_WORKSPACE}" >/dev/null 2>&1
+git -c http.extraheader="Authorization: Bearer ${TOKEN}" clone "${GIT_HTTPS_URL}" "${TMP_WORKSPACE}" >/dev/null 2>&1
 
 pushd "${TMP_WORKSPACE}" >/dev/null
 
@@ -109,11 +109,11 @@ git config user.email "automation@altostrat.com"
 git checkout main
 git add definitions/outputs/fct_cleaned_transactions.sqlx
 git commit -m "chore: reset baseline to v1.0 (without customer_tier)" >/dev/null 2>&1 || true
-git -c credential.helper="${CRED_HELPER}" push origin main --force >/dev/null 2>&1
+git -c http.extraheader="Authorization: Bearer ${TOKEN}" push origin main --force >/dev/null 2>&1
 
 git checkout "${DEFAULT_BRANCH}" 2>/dev/null || git checkout -b "${DEFAULT_BRANCH}"
 git reset --hard main
-git -c credential.helper="${CRED_HELPER}" push origin "${DEFAULT_BRANCH}" --force >/dev/null 2>&1
+git -c http.extraheader="Authorization: Bearer ${TOKEN}" push origin "${DEFAULT_BRANCH}" --force >/dev/null 2>&1
 
 popd >/dev/null
 rm -rf "${TMP_WORKSPACE}"
