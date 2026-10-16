@@ -61,27 +61,43 @@ INSTANCE_STATE=$(gcloud beta source-manager instances describe "${INSTANCE_ID}" 
 
 if [ "${INSTANCE_STATE}" = "NOT_FOUND" ]; then
   echo "SSM Instance '${INSTANCE_ID}' not found in ${SSM_PROJECT}. Initiating creation in ${LOCATION}..."
-  gcloud beta source-manager instances create "${INSTANCE_ID}" \
+  if ! gcloud beta source-manager instances create "${INSTANCE_ID}" \
     --region="${LOCATION}" \
     --project="${SSM_PROJECT}" \
-    --async
+    --async; then
+    echo "✘ Failed to initiate SSM instance creation in ${SSM_PROJECT}."
+    exit 1
+  fi
   INSTANCE_STATE="CREATING"
 fi
 
 if [ "${INSTANCE_STATE}" != "ACTIVE" ]; then
-  echo "Waiting for SSM instance '${INSTANCE_ID}' to become ACTIVE..."
-  while true; do
-    STATE=$(gcloud beta source-manager instances describe "${INSTANCE_ID}" --region="${LOCATION}" --project="${SSM_PROJECT}" --format="value(state)" 2>/dev/null || echo "CREATING")
-    echo "  Current state: ${STATE} - $(date '+%H:%M:%S')"
-    if [ "${STATE}" = "ACTIVE" ]; then
+  echo "Waiting for SSM instance '${INSTANCE_ID}' to become ACTIVE (typically takes ~5-10 minutes)..."
+  MAX_WAIT_MINUTES=25
+  ELAPSED=0
+  while [ "${ELAPSED}" -lt "${MAX_WAIT_MINUTES}" ]; do
+    DESC_OUTPUT=$(gcloud beta source-manager instances describe "${INSTANCE_ID}" --region="${LOCATION}" --project="${SSM_PROJECT}" --format="value(state)" 2>&1) || true
+    
+    if echo "${DESC_OUTPUT}" | grep -q "^ACTIVE$"; then
       echo "✔ SSM Instance is now ACTIVE!"
       break
-    elif [ "${STATE}" = "FAILED" ]; then
-      echo "✘ SSM Instance creation FAILED. Check Cloud Logging."
+    elif echo "${DESC_OUTPUT}" | grep -q "^FAILED$"; then
+      echo "✘ SSM Instance creation FAILED. Error details:"
+      echo "${DESC_OUTPUT}"
       exit 1
+    elif echo "${DESC_OUTPUT}" | grep -qi "NOT_FOUND"; then
+      echo "  [$(date '+%H:%M:%S')] Instance provisioning queued/initializing... (${ELAPSED}m elapsed)"
+    else
+      echo "  [$(date '+%H:%M:%S')] Current state: ${DESC_OUTPUT} (${ELAPSED}m elapsed)"
     fi
-    sleep 20
+    sleep 30
+    ELAPSED=$((ELAPSED + 1))
   done
+  
+  if [ "${ELAPSED}" -ge "${MAX_WAIT_MINUTES}" ]; then
+    echo "✘ Timeout reached (${MAX_WAIT_MINUTES} minutes) waiting for SSM instance '${INSTANCE_ID}' to become ACTIVE."
+    exit 1
+  fi
 else
   echo "✔ SSM Instance '${INSTANCE_ID}' is ACTIVE."
 fi
