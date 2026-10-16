@@ -252,8 +252,8 @@ PROD_COUNT=$(bq query \
   --project_id="${PROD_PROJECT}" \
   --location="${LOCATION}" \
   --use_legacy_sql=false \
-  "SELECT COUNT(*) AS total_curated_records FROM \`${PROD_PROJECT}.${TARGET_DATASET}.fct_cleaned_transactions\`" \
-  --format=csv | tail -n 1)
+  --format=csv \
+  "SELECT COUNT(*) AS total_curated_records FROM \`${PROD_PROJECT}.${TARGET_DATASET}.fct_cleaned_transactions\`" | tail -n 1)
 
 echo "✔ PROD curated fact table contains ${PROD_COUNT} validated records."
 

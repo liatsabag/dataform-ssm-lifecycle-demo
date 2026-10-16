@@ -158,8 +158,8 @@ else
     --project_id="${PROD_PROJECT}" \
     --location="${LOCATION}" \
     --use_legacy_sql=false \
-    "SELECT COUNT(*) AS total_records FROM \`${PROD_PROJECT}.${TARGET_DATASET}.fct_cleaned_transactions\`" \
-    --format=csv | tail -n 1)
+    --format=csv \
+    "SELECT COUNT(*) AS total_records FROM \`${PROD_PROJECT}.${TARGET_DATASET}.fct_cleaned_transactions\`" | tail -n 1)
   
   if [ "${PROD_RECORD_COUNT}" -gt 0 ]; then
     echo "✔ PASS: PROD baseline table verified (${PROD_RECORD_COUNT} records, v1.0 schema without 'customer_tier')."
