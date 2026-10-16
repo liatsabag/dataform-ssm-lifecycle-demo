@@ -18,11 +18,11 @@ echo "Location       : ${LOCATION}"
 echo "==================================================================="
 
 PASSED_TESTS=0
-TOTAL_TESTS=5
+TOTAL_TESTS=6
 
 # Test 1: Dataform Compilation & Anti-Hijacking Resolution
 echo ""
-echo ">>> [Test 1/5] Anti-Hijacking & Cross-Project Source Resolution Test <<<"
+echo ">>> [Test 1/6] Anti-Hijacking & Cross-Project Source Resolution Test <<<"
 COMPILE_JSON=$(cd "$(dirname "$0")/.." && npx -y @dataform/cli compile --json 2>/dev/null)
 
 SOURCE_DB=$(echo "${COMPILE_JSON}" | grep -o "\"database\": \"${PROD_PROJECT}\"" | head -n 1 || true)
@@ -36,17 +36,17 @@ else
   echo "✘ FAIL: Source anti-hijacking resolution failed in compiled DAG."
 fi
 
-# Test 2: Intermediate View Data Cleansing
+# Test 2: Intermediate View Data Cleansing (DEV)
 echo ""
-echo ">>> [Test 2/5] Intermediate Staging View Cleansing & Filtering Test <<<"
+echo ">>> [Test 2/6] DEV Intermediate Staging View Cleansing & Filtering Test <<<"
 CLEANSED_TEST_SQL="SELECT
   COUNTIF(transaction_amount < 0) AS negative_amounts_count,
   COUNTIF(transaction_id IS NULL OR TRIM(transaction_id) = '') AS blank_ids_count,
   COUNTIF(payment_status != UPPER(payment_status)) AS unnormalized_status_count
-FROM \`${TARGET_PROJECT}.${TARGET_DATASET}.stg_transactions\`;"
+FROM \`${DEV_PROJECT}.${TARGET_DATASET}.stg_transactions\`;"
 
 CLEANSED_RESULTS=$(bq query \
-  --project_id="${TARGET_PROJECT}" \
+  --project_id="${DEV_PROJECT}" \
   --location="${LOCATION}" \
   --use_legacy_sql=false \
   --format=json \
@@ -71,19 +71,19 @@ else
   echo "✘ FAIL: Intermediate view contains uncleaned records (${PYTHON_CHECK_2})."
 fi
 
-# Test 3: Deduplication & Fact Table Business Logic
+# Test 3: Deduplication & Fact Table Business Logic (DEV)
 echo ""
-echo ">>> [Test 3/5] Fact Table Deduplication & Business Logic Test <<<"
+echo ">>> [Test 3/6] DEV Fact Table Deduplication & Business Logic Test <<<"
 DEDUP_TEST_SQL="SELECT
   COUNTIF(transaction_id = 'TXN_1004') AS txn_1004_count,
   MAX(IF(transaction_id = 'TXN_1004', payment_status, NULL)) AS txn_1004_status,
   COUNTIF(transaction_id = 'TXN_1005') AS txn_1005_count,
   MAX(IF(transaction_id = 'TXN_1005', payment_status, NULL)) AS txn_1005_status,
   COUNTIF(is_high_value = TRUE) AS high_value_count
-FROM \`${TARGET_PROJECT}.${TARGET_DATASET}.fct_cleaned_transactions\`;"
+FROM \`${DEV_PROJECT}.${TARGET_DATASET}.fct_cleaned_transactions\`;"
 
 DEDUP_RESULTS=$(bq query \
-  --project_id="${TARGET_PROJECT}" \
+  --project_id="${DEV_PROJECT}" \
   --location="${LOCATION}" \
   --use_legacy_sql=false \
   --format=json \
@@ -113,8 +113,8 @@ fi
 
 # Test 4: BigQuery Table Partitioning & Clustering Verification
 echo ""
-echo ">>> [Test 4/5] Physical Optimization (Partitioning & Clustering) Verification <<<"
-TABLE_INFO=$(bq show --format=prettyjson "${TARGET_PROJECT}:${TARGET_DATASET}.fct_cleaned_transactions")
+echo ">>> [Test 4/6] DEV Physical Optimization (Partitioning & Clustering) Verification <<<"
+TABLE_INFO=$(bq show --format=prettyjson "${DEV_PROJECT}:${TARGET_DATASET}.fct_cleaned_transactions")
 
 PARTITION_FIELD=$(echo "${TABLE_INFO}" | grep -o '"field": "transaction_date"' || true)
 CLUSTER_CUSTOMER=$(echo "${TABLE_INFO}" | grep -o '"customer_id"' || true)
@@ -127,21 +127,46 @@ else
   echo "✘ FAIL: Table partitioning or clustering metadata check failed."
 fi
 
-# Test 5: Automated Data Quality Assertions
+# Test 5: Automated Data Quality Assertions (DEV)
 echo ""
-echo ">>> [Test 5/5] Automated Data Quality Assertions Check <<<"
+echo ">>> [Test 5/6] DEV Automated Data Quality Assertions Check <<<"
 ASSERT_FAILURES=$(bq query \
-  --project_id="${TARGET_PROJECT}" \
+  --project_id="${DEV_PROJECT}" \
   --location="${LOCATION}" \
   --use_legacy_sql=false \
   --format=json \
-  "SELECT transaction_id FROM \`${TARGET_PROJECT}.${TARGET_DATASET}.fct_cleaned_transactions\` GROUP BY transaction_id HAVING COUNT(*) > 1 OR transaction_id IS NULL UNION ALL SELECT transaction_id FROM \`${TARGET_PROJECT}.${TARGET_DATASET}.fct_cleaned_transactions\` WHERE transaction_amount < 0 OR transaction_amount IS NULL;")
+  "SELECT transaction_id FROM \`${DEV_PROJECT}.${TARGET_DATASET}.fct_cleaned_transactions\` GROUP BY transaction_id HAVING COUNT(*) > 1 OR transaction_id IS NULL UNION ALL SELECT transaction_id FROM \`${DEV_PROJECT}.${TARGET_DATASET}.fct_cleaned_transactions\` WHERE transaction_amount < 0 OR transaction_amount IS NULL;")
 
 if [ "${ASSERT_FAILURES}" = "[]" ]; then
-  echo "✔ PASS: All data quality assertions passed with zero violations."
+  echo "✔ PASS: All data quality assertions passed with zero violations in DEV."
   PASSED_TESTS=$((PASSED_TESTS + 1))
 else
   echo "✘ FAIL: Assertions found data quality violations: ${ASSERT_FAILURES}"
+fi
+
+# Test 6: PROD Baseline Table & Schema Verification
+echo ""
+echo ">>> [Test 6/6] PROD Baseline Curated Table & Schema Verification <<<"
+PROD_SCHEMA=$(bq show --schema "${PROD_PROJECT}:${TARGET_DATASET}.fct_cleaned_transactions" 2>/dev/null || echo "NOT_FOUND")
+
+if [ "${PROD_SCHEMA}" = "NOT_FOUND" ]; then
+  echo "✘ FAIL: PROD curated table ${PROD_PROJECT}:${TARGET_DATASET}.fct_cleaned_transactions does not exist."
+elif echo "${PROD_SCHEMA}" | grep -q "customer_tier"; then
+  echo "✘ FAIL: PROD curated table contains 'customer_tier' (baseline should be v1.0 without this feature)."
+else
+  PROD_RECORD_COUNT=$(bq query \
+    --project_id="${PROD_PROJECT}" \
+    --location="${LOCATION}" \
+    --use_legacy_sql=false \
+    "SELECT COUNT(*) AS total_records FROM \`${PROD_PROJECT}.${TARGET_DATASET}.fct_cleaned_transactions\`" \
+    --format=csv | tail -n 1)
+  
+  if [ "${PROD_RECORD_COUNT}" -gt 0 ]; then
+    echo "✔ PASS: PROD baseline table verified (${PROD_RECORD_COUNT} records, v1.0 schema without 'customer_tier')."
+    PASSED_TESTS=$((PASSED_TESTS + 1))
+  else
+    echo "✘ FAIL: PROD curated table exists but is empty (0 records)."
+  fi
 fi
 
 echo ""
