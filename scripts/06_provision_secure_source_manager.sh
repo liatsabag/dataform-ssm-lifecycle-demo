@@ -76,12 +76,7 @@ if [ "${INSTANCE_STATE}" != "ACTIVE" ]; then
   MAX_WAIT_MINUTES=60
   START_TIME=$(date +%s)
   while true; do
-    DESC_OUTPUT=$(gcloud beta source-manager instances describe "${INSTANCE_ID}" --region="${LOCATION}" --project="${SSM_PROJECT}" --format="value(state)" 2>&1) || {
-      DESC_EXIT_CODE=$?
-      echo "✘ Error executing 'gcloud beta source-manager instances describe' (exit code ${DESC_EXIT_CODE}):"
-      echo "${DESC_OUTPUT}"
-      exit 1
-    }
+    DESC_OUTPUT=$(gcloud beta source-manager instances describe "${INSTANCE_ID}" --region="${LOCATION}" --project="${SSM_PROJECT}" --format="value(state)" 2>&1) || true
 
     NOW=$(date +%s)
     ELAPSED_MINUTES=$(( (NOW - START_TIME) / 60 ))
@@ -95,8 +90,10 @@ if [ "${INSTANCE_STATE}" != "ACTIVE" ]; then
       exit 1
     elif [ "${DESC_OUTPUT}" = "CREATING" ] || [ "${DESC_OUTPUT}" = "UPDATING" ]; then
       echo "  [$(date '+%H:%M:%S')] Current state: ${DESC_OUTPUT} (${ELAPSED_MINUTES}m elapsed)"
+    elif echo "${DESC_OUTPUT}" | grep -qi "NOT_FOUND"; then
+      echo "  [$(date '+%H:%M:%S')] Instance provisioning initializing in GCP... (${ELAPSED_MINUTES}m elapsed)"
     else
-      echo "✘ Unexpected instance state or error received from GCP:"
+      echo "✘ Unexpected error executing 'gcloud beta source-manager instances describe':"
       echo "${DESC_OUTPUT}"
       exit 1
     fi
