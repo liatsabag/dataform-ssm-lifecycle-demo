@@ -77,9 +77,16 @@ DEV_VIEWER=$(gcloud projects get-iam-policy "${SSM_PROJECT}" \
   --format="value(bindings.role)" \
   --filter="bindings.members:${DEVELOPER} AND bindings.role:roles/securesourcemanager.viewer" 2>/dev/null || echo "")
 
+DEV_REPO_ROLE=$(gcloud beta source-manager repos get-iam-policy "${REPO_ID}" \
+  --region="${LOCATION}" \
+  --project="${SSM_PROJECT}" \
+  --flatten="bindings[].members" \
+  --format="value(bindings.role)" \
+  --filter="bindings.members:${DEVELOPER}" 2>/dev/null || echo "")
+
 if [ "${REPO_NAME}" != "NOT_FOUND" ] && [ "${HAS_MAIN}" -ge 1 ] && [ "${HAS_DEV}" -ge 1 ]; then
-  if [ -n "${DEV_VIEWER}" ]; then
-    echo "✔ PASS: Repository '${REPO_ID}' exists in '${SSM_PROJECT}' (main & development branches present; Developer possesses securesourcemanager.viewer role)."
+  if [ -n "${DEV_VIEWER}" ] && [[ "${DEV_REPO_ROLE}" == *"repoAdmin"* || "${DEV_REPO_ROLE}" == *"repoWriter"* ]]; then
+    echo "✔ PASS: Repository '${REPO_ID}' exists in '${SSM_PROJECT}' (main & development branches present; Developer possesses securesourcemanager.viewer and repo-level PR/push permissions: ${DEV_REPO_ROLE})."
   else
     echo "✔ PASS: Repository '${REPO_ID}' exists in '${SSM_PROJECT}' with both 'main' and 'development' branches."
   fi
