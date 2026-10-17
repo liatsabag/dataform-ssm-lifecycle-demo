@@ -82,10 +82,15 @@ gcloud projects add-iam-policy-binding "${PROD_PROJECT}" \
   --role="roles/viewer" \
   --condition=None >/dev/null 2>&1 || true
 
-echo "Granting roles/viewer & securesourcemanager.instanceAccessor to Developer (${DEVELOPER}) in SSM (${SSM_PROJECT})..."
+echo "Granting roles/viewer, securesourcemanager.viewer & securesourcemanager.instanceAccessor to Developer (${DEVELOPER}) in SSM (${SSM_PROJECT})..."
 gcloud projects add-iam-policy-binding "${SSM_PROJECT}" \
   --member="user:${DEVELOPER}" \
   --role="roles/viewer" \
+  --condition=None >/dev/null 2>&1 || true
+
+gcloud projects add-iam-policy-binding "${SSM_PROJECT}" \
+  --member="user:${DEVELOPER}" \
+  --role="roles/securesourcemanager.viewer" \
   --condition=None >/dev/null 2>&1 || true
 
 gcloud projects add-iam-policy-binding "${SSM_PROJECT}" \

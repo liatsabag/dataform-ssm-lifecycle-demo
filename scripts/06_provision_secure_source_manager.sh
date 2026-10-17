@@ -123,6 +123,11 @@ gcloud projects add-iam-policy-binding "${SSM_PROJECT}" \
 
 gcloud projects add-iam-policy-binding "${SSM_PROJECT}" \
   --member="user:${DEVELOPER}" \
+  --role="roles/securesourcemanager.viewer" \
+  --condition=None >/dev/null 2>&1 || true
+
+gcloud projects add-iam-policy-binding "${SSM_PROJECT}" \
+  --member="user:${DEVELOPER}" \
   --role="roles/securesourcemanager.instanceAccessor" \
   --condition=None >/dev/null 2>&1 || true
 
