@@ -18,11 +18,11 @@ echo "Location       : ${LOCATION}"
 echo "==================================================================="
 
 PASSED_TESTS=0
-TOTAL_TESTS=6
+TOTAL_TESTS=7
 
 # Test 1: Dataform Compilation & Anti-Hijacking Resolution
 echo ""
-echo ">>> [Test 1/6] Anti-Hijacking & Cross-Project Source Resolution Test <<<"
+echo ">>> [Test 1/7] Anti-Hijacking & Cross-Project Source Resolution Test <<<"
 COMPILE_JSON=$(cd "$(dirname "$0")/.." && npx -y @dataform/cli compile --json 2>/dev/null)
 
 SOURCE_DB=$(echo "${COMPILE_JSON}" | grep -o "\"database\": \"${PROD_PROJECT}\"" | head -n 1 || true)
@@ -111,9 +111,34 @@ else
   echo "✘ FAIL: Deduplication or business logic check failed (${PYTHON_CHECK_3})."
 fi
 
-# Test 4: BigQuery Table Partitioning & Clustering Verification
+# Test 4: Developer Workspace Sandbox Isolation & Baseline Tables
 echo ""
-echo ">>> [Test 4/6] DEV Physical Optimization (Partitioning & Clustering) Verification <<<"
+echo ">>> [Test 4/7] Developer Sandbox Baseline Tables Verification (${DEV_PROJECT}.${TARGET_DATASET}_${DEVELOPER_WORKSPACE}) <<<"
+if [ -n "${DEVELOPER_WORKSPACE:-}" ]; then
+  SANDBOX_DATASET="${TARGET_DATASET}_${DEVELOPER_WORKSPACE}"
+  SANDBOX_STG=$(bq show "${DEV_PROJECT}:${SANDBOX_DATASET}.stg_transactions" 2>/dev/null || echo "NOT_FOUND")
+  SANDBOX_FCT=$(bq show "${DEV_PROJECT}:${SANDBOX_DATASET}.fct_cleaned_transactions" 2>/dev/null || echo "NOT_FOUND")
+
+  if [ "${SANDBOX_STG}" != "NOT_FOUND" ] && [ "${SANDBOX_FCT}" != "NOT_FOUND" ]; then
+    SANDBOX_COUNT=$(bq query \
+      --project_id="${DEV_PROJECT}" \
+      --location="${LOCATION}" \
+      --use_legacy_sql=false \
+      --format=csv \
+      "SELECT COUNT(*) AS total_records FROM \`${DEV_PROJECT}.${SANDBOX_DATASET}.fct_cleaned_transactions\`" | tail -n 1)
+    echo "✔ PASS: Developer sandbox '${SANDBOX_DATASET}' contains stg_transactions view & fct_cleaned_transactions table (${SANDBOX_COUNT} records)."
+    PASSED_TESTS=$((PASSED_TESTS + 1))
+  else
+    echo "✘ FAIL: Developer sandbox '${SANDBOX_DATASET}' is missing stg_transactions or fct_cleaned_transactions."
+  fi
+else
+  echo "✔ PASS: Developer workspace not defined, skipping sandbox table check."
+  PASSED_TESTS=$((PASSED_TESTS + 1))
+fi
+
+# Test 5: BigQuery Table Partitioning & Clustering Verification
+echo ""
+echo ">>> [Test 5/7] DEV Physical Optimization (Partitioning & Clustering) Verification <<<"
 TABLE_INFO=$(bq show --format=prettyjson "${DEV_PROJECT}:${TARGET_DATASET}.fct_cleaned_transactions")
 
 PARTITION_FIELD=$(echo "${TABLE_INFO}" | grep -o '"field": "transaction_date"' || true)
@@ -127,9 +152,9 @@ else
   echo "✘ FAIL: Table partitioning or clustering metadata check failed."
 fi
 
-# Test 5: Automated Data Quality Assertions (DEV)
+# Test 6: Automated Data Quality Assertions (DEV)
 echo ""
-echo ">>> [Test 5/6] DEV Automated Data Quality Assertions Check <<<"
+echo ">>> [Test 6/7] DEV Automated Data Quality Assertions Check <<<"
 ASSERT_FAILURES=$(bq query \
   --project_id="${DEV_PROJECT}" \
   --location="${LOCATION}" \
@@ -144,9 +169,9 @@ else
   echo "✘ FAIL: Assertions found data quality violations: ${ASSERT_FAILURES}"
 fi
 
-# Test 6: PROD Baseline Table & Schema Verification
+# Test 7: PROD Baseline Table & Schema Verification
 echo ""
-echo ">>> [Test 6/6] PROD Baseline Curated Table & Schema Verification <<<"
+echo ">>> [Test 7/7] PROD Baseline Curated Table & Schema Verification <<<"
 PROD_SCHEMA=$(bq show --schema "${PROD_PROJECT}:${TARGET_DATASET}.fct_cleaned_transactions" 2>/dev/null || echo "NOT_FOUND")
 
 if [ "${PROD_SCHEMA}" = "NOT_FOUND" ]; then

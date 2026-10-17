@@ -107,6 +107,92 @@ bq query \
 
 echo "✔ Materialized curated table ${DEV_PROJECT}.${TARGET_DATASET}.fct_cleaned_transactions"
 
+# Step 2b: Materialize Tier 2 Staging View & Tier 3 Curated Fact Table in Developer Sandbox
+if [ -n "${DEVELOPER_WORKSPACE:-}" ]; then
+  SANDBOX_DATASET="${TARGET_DATASET}_${DEVELOPER_WORKSPACE}"
+  echo ""
+  echo ">>> [Step 2b/5] Materializing Developer Sandbox Pipeline (${DEV_PROJECT}.${SANDBOX_DATASET}) <<<"
+  
+  STG_SANDBOX_SQL="CREATE OR REPLACE VIEW \`${DEV_PROJECT}.${SANDBOX_DATASET}.stg_transactions\`
+  OPTIONS(
+    description=\"Developer sandbox staging transaction view reading from locked PROD raw source.\"
+  ) AS
+  WITH cleaned AS (
+    SELECT
+      TRIM(transaction_id) AS transaction_id,
+      TRIM(customer_id) AS customer_id,
+      SAFE_CAST(transaction_timestamp AS TIMESTAMP) AS transaction_timestamp,
+      COALESCE(SAFE_CAST(amount AS NUMERIC), 0.0) AS transaction_amount,
+      UPPER(TRIM(COALESCE(status, 'UNKNOWN'))) AS payment_status
+    FROM
+      \`${PROD_PROJECT}.raw_vault.raw_transactions\`
+    WHERE
+      transaction_id IS NOT NULL
+      AND TRIM(transaction_id) != ''
+  )
+  SELECT
+    transaction_id,
+    customer_id,
+    transaction_timestamp,
+    transaction_amount,
+    payment_status
+  FROM
+    cleaned
+  WHERE
+    transaction_amount >= 0;"
+
+  bq query \
+    --project_id="${DEV_PROJECT}" \
+    --location="${LOCATION}" \
+    --use_legacy_sql=false \
+    "${STG_SANDBOX_SQL}"
+
+  echo "✔ Created/updated view ${DEV_PROJECT}.${SANDBOX_DATASET}.stg_transactions"
+
+  FCT_SANDBOX_SQL="CREATE OR REPLACE TABLE \`${DEV_PROJECT}.${SANDBOX_DATASET}.fct_cleaned_transactions\`
+  PARTITION BY transaction_date
+  CLUSTER BY customer_id, payment_status
+  OPTIONS(
+    description=\"Developer sandbox curated fact table containing validated transactions.\"
+  ) AS
+  WITH deduplicated AS (
+    SELECT
+      transaction_id,
+      customer_id,
+      DATE(transaction_timestamp) AS transaction_date,
+      transaction_timestamp,
+      transaction_amount,
+      payment_status,
+      ROW_NUMBER() OVER(
+        PARTITION BY transaction_id 
+        ORDER BY transaction_timestamp DESC
+      ) AS row_num
+    FROM
+      \`${DEV_PROJECT}.${SANDBOX_DATASET}.stg_transactions\`
+  )
+  SELECT
+    transaction_id,
+    customer_id,
+    transaction_date,
+    transaction_timestamp,
+    transaction_amount,
+    payment_status,
+    (transaction_amount >= 1000.0) AS is_high_value,
+    CURRENT_TIMESTAMP() AS processed_at
+  FROM
+    deduplicated
+  WHERE
+    row_num = 1;"
+
+  bq query \
+    --project_id="${DEV_PROJECT}" \
+    --location="${LOCATION}" \
+    --use_legacy_sql=false \
+    "${FCT_SANDBOX_SQL}"
+
+  echo "✔ Materialized sandbox curated table ${DEV_PROJECT}.${SANDBOX_DATASET}.fct_cleaned_transactions"
+fi
+
 # Step 3: Materialize Tier 2 Staging View & Tier 3 Curated Fact Table in PROD
 echo ""
 echo ">>> [Step 3/5] Materializing PROD Baseline Pipeline (${PROD_PROJECT}.${TARGET_DATASET}) <<<"
