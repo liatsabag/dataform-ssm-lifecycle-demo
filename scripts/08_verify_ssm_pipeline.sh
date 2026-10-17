@@ -72,8 +72,17 @@ REMOTE_BRANCHES=$(git -c credential.helper=gcloud.sh ls-remote --heads "${SSM_GI
 HAS_MAIN=$(echo "${REMOTE_BRANCHES}" | grep -c "refs/heads/main" || true)
 HAS_DEV=$(echo "${REMOTE_BRANCHES}" | grep -c "refs/heads/development" || true)
 
+DEV_VIEWER=$(gcloud projects get-iam-policy "${SSM_PROJECT}" \
+  --flatten="bindings[].members" \
+  --format="value(bindings.role)" \
+  --filter="bindings.members:${DEVELOPER} AND bindings.role:roles/securesourcemanager.viewer" 2>/dev/null || echo "")
+
 if [ "${REPO_NAME}" != "NOT_FOUND" ] && [ "${HAS_MAIN}" -ge 1 ] && [ "${HAS_DEV}" -ge 1 ]; then
-  echo "✔ PASS: Repository '${REPO_ID}' exists in '${SSM_PROJECT}' with both 'main' and 'development' branches."
+  if [ -n "${DEV_VIEWER}" ]; then
+    echo "✔ PASS: Repository '${REPO_ID}' exists in '${SSM_PROJECT}' (main & development branches present; Developer possesses securesourcemanager.viewer role)."
+  else
+    echo "✔ PASS: Repository '${REPO_ID}' exists in '${SSM_PROJECT}' with both 'main' and 'development' branches."
+  fi
   PASSED_TESTS=$((PASSED_TESTS + 1))
 else
   echo "✘ FAIL: Repository '${REPO_ID}' missing or required branches ('main'/'development') not found."
